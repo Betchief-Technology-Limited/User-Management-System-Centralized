@@ -4,6 +4,7 @@ import { connectRedis } from "./src/config/redis.js";
 import { env } from "./src/config/env.js";
 
 async function startServer() {
+    console.log("REDIS_URL:", env.REDIS_URL);
     try {
         await connectDB();
         try {
@@ -25,6 +26,8 @@ async function startServer() {
         console.error("Server startup failed:", error.message);
         process.exit(1);
     }
+
+    
 
 }
 
