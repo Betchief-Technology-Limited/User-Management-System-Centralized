@@ -23,13 +23,13 @@ userRoutes.use(requireAuth)
 
 userRoutes.post("/users", validate(createUserSchema), asyncHandler(createUserHandler));
 userRoutes.get("/users", asyncHandler(getUsersHandler));
-userRoutes.get("/user:id", asyncHandler(getUserHandler));
-userRoutes.patch("/user:id", validate(updateUserSchema), asyncHandler(updateUserHandler));
+userRoutes.get("/users/:id", asyncHandler(getUserHandler));
+userRoutes.patch("/users/:id", validate(updateUserSchema), asyncHandler(updateUserHandler));
 userRoutes.patch(
-    "/user:id/status",
+    "/users/:id/status",
     validate(updateUserStatusSchema),
     asyncHandler(updateUserStatusHandler)
 );
-userRoutes.delete("/user:id", asyncHandler(deleteUserHandler));
+userRoutes.delete("/users/:id", asyncHandler(deleteUserHandler));
 
 export default userRoutes;

@@ -5,8 +5,10 @@ import morgan from "morgan";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
+
 import errorHandler from "./middleware/error.middleware.js";
 import rateLimiter from "./middleware/rateLimiter.middleware.js";
+import allowedCors from "./config/corsConfig.js";
 
 const app = express();
 
@@ -19,6 +21,26 @@ app.use(express.json())
 
 //this is for logging
 app.use(morgan("dev"));
+
+//Cross Origin Resource Sharing
+const corsOrigin = {
+    origin: function (origin, callback){
+        if(!origin) return callback(null, true);
+        if(allowedCors.includes(origin)){
+            return callback(null, true)
+        } else{
+            console.warn(`🚫 Cors blocked:, ${origin}` )
+            return callback(null, false)
+        }
+    },
+    credentials: true,
+    optionsSuccessStatus: 200
+}
+
+app.use(cors(corsOrigin))
+
+//for preflight request
+app.options(/.*/, cors(corsOrigin));
 
 //rate limiting
 app.use(rateLimiter);

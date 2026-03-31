@@ -10,12 +10,12 @@ import {
     verifyEmailToken,
 } from "./auth.service.js";
 
-export const register = async (req, res) => {
+export async function register (req, res) {
     const result = await registerUser(req.validatedBody);
 
     return successResponse(
         res,
-        "User registered successfully",
+        "User registered successfully.Please check your email to verify your account",
         {
             user: {
                 id: result.user._id,
@@ -25,13 +25,12 @@ export const register = async (req, res) => {
                 status: result.user.status,
                 emailVerified: result.user.emailVerified,
             },
-            verificationToken: result.verificationToken,
         },
         201
     );
 };
 
-export const login = async (req, res) => {
+export async function login (req, res) {
     const result = await loginUser({
         ...req.validatedBody,
         deviceInfo: req.headers["user-agent"] || "unknown",
@@ -52,37 +51,37 @@ export const login = async (req, res) => {
     });
 };
 
-export const refresh = async (req, res) => {
+export async function refresh (req, res) {
     const tokens = await refreshUserToken(req.validatedBody);
 
     return successResponse(res, "Token refreshed successfully", tokens);
 };
 
-export const logout = async (req, res) => {
+export async function logout (req, res) {
     await logoutUser(req.validatedBody);
 
     return successResponse(res, "Logout successful");
 };
 
-export const me = async (req, res) => {
+export async function me (req, res) {
     const user = await getCurrentUser(req.user.sub);
 
     return successResponse(res, "Current user fetched successfully", { user });
 };
 
-export const verifyEmail = async (req, res) => {
+export async function verifyEmail (req, res) {
     await verifyEmailToken(req.validatedBody);
 
     return successResponse(res, "Email verified successfully");
 };
 
-export const forgotPassword = async (req, res) => {
+export async function forgotPassword (req, res) {
     const result = await requestPasswordReset(req.validatedBody);
 
     return successResponse(res, "Password reset token generated", result);
 };
 
-export const resetUserPassword = async (req, res) => {
+export async function resetUserPassword (req, res) {
     await resetPassword(req.validatedBody);
 
     return successResponse(res, "Password reset successfully");

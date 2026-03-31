@@ -1,16 +1,17 @@
-import  User  from "../../database/model/user.model.js";
+import User from "../../database/model/user.model.js";
 import Session from "../../database/model/session.model.js";
-import  VerificationToken  from "../../database/model/verificationToken.model.js";
-import  PasswordResetToken  from "../../database/model/passwordResetToken.model.js";
+import sendVerificationEmail from "./auth.email.js";
+import VerificationToken from "../../database/model/verificationToken.model.js";
+import PasswordResetToken from "../../database/model/passwordResetToken.model.js";
 import { AppError } from "../../shared/errors/AppError.js";
-import { 
-    hashPassword, 
-    comparePassword, 
-    generateAccessToken, 
+import {
+    hashPassword,
+    comparePassword,
+    generateAccessToken,
     generateRandomToken,
     generateRefreshToken,
-    verifyRefreshToken, 
-    hashToken 
+    verifyRefreshToken,
+    hashToken
 } from "./auth.utils.js";
 
 const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,7 +22,7 @@ const buildAuthPayload = (user) => ({
     email: user.email,
 });
 
-export const registerUser = async ({ email, password, firstName, lastName }) => {
+export async function registerUser({ email, password, firstName, lastName }) {
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
@@ -46,18 +47,22 @@ export const registerUser = async ({ email, password, firstName, lastName }) => 
         expiresAt: new Date(Date.now() + ONE_HOUR_IN_MS),
     });
 
+    await sendVerificationEmail({
+        to: user.email,
+        firstName: user.firstName,
+        token: rawVerificationToken
+    })
     return {
         user,
-        verificationToken: rawVerificationToken,
     };
 };
 
-export const loginUser = async ({
+export async function loginUser({
     email,
     password,
     deviceInfo,
     ipAddress,
-}) => {
+}) {
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -97,7 +102,7 @@ export const loginUser = async ({
     };
 };
 
-export const refreshUserToken = async ({ refreshToken }) => {
+export async function refreshUserToken ({ refreshToken }) {
     let decoded;
 
     try {
@@ -143,7 +148,7 @@ export const refreshUserToken = async ({ refreshToken }) => {
     };
 };
 
-export const logoutUser = async ({ refreshToken }) => {
+export async function logoutUser ({ refreshToken }) {
     let decoded;
 
     try {
@@ -170,7 +175,7 @@ export const logoutUser = async ({ refreshToken }) => {
     return true;
 };
 
-export const getCurrentUser = async (userId) => {
+export async function getCurrentUser (userId) {
     const user = await User.findById(userId).select("-passwordHash");
 
     if (!user) {
@@ -180,7 +185,7 @@ export const getCurrentUser = async (userId) => {
     return user;
 };
 
-export const verifyEmailToken = async ({ token }) => {
+export async function verifyEmailToken ({ token }) {
     const tokenHash = hashToken(token);
 
     const verificationRecord = await VerificationToken.findOne({
@@ -211,7 +216,7 @@ export const verifyEmailToken = async ({ token }) => {
     return true;
 };
 
-export const requestPasswordReset = async ({ email }) => {
+export async function requestPasswordReset ({ email }) {
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -232,7 +237,7 @@ export const requestPasswordReset = async ({ email }) => {
     };
 };
 
-export const resetPassword = async ({ token, password }) => {
+export async function resetPassword ({ token, password }) {
     const tokenHash = hashToken(token);
 
     const resetRecord = await PasswordResetToken.findOne({
