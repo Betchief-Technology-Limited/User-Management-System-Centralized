@@ -13,6 +13,11 @@ import {
     verifyRefreshToken,
     hashToken
 } from "./auth.utils.js";
+import Role from "../../database/model/role.model.js";
+import Permission from "../../database/model/permission.model.js";
+import RolePermission from "../../database/model/rolePermission.model.js";
+import UserRole from "../../database/model/userRole.model.js";
+
 
 const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000;
 const ONE_HOUR_IN_MS = 60 * 60 * 1000;
@@ -37,6 +42,50 @@ export async function registerUser({ email, password, firstName, lastName }) {
         firstName,
         lastName,
     });
+
+    const existingRoleCount = await Role.countDocuments();
+
+    if (existingRoleCount === 0) {
+        // Create permission
+        const permissionNames = [
+            "manage_users",
+            "manage_roles",
+            "manage_permissions"
+        ]
+
+        const permissions = [];
+
+        for (const name of permissionNames) {
+            const permission = await Permission.create({
+                name,
+                description: `${name} permission`
+            });
+            permissions.push(permission)
+        }
+
+        // Create Super admin role
+        const superAdminRole = await Role.create({
+            name: "Super Admin",
+            description: "Platform super administrator"
+        });
+
+        // Assign permissions to role
+        for (const permission of permissions) {
+            await RolePermission.create({
+                roleId: superAdminRole._id,
+                permissionId: permission._id
+            })
+        }
+
+        // Assign role to this user
+        await UserRole.create({
+            userId: user._id,
+            roleId: superAdminRole._id,
+            organizationId: null
+        });
+
+        console.log("👌 First user assigned as Super Admin")
+    }
 
     const rawVerificationToken = generateRandomToken();
     const verificationTokenHash = hashToken(rawVerificationToken);
@@ -102,7 +151,7 @@ export async function loginUser({
     };
 };
 
-export async function refreshUserToken ({ refreshToken }) {
+export async function refreshUserToken({ refreshToken }) {
     let decoded;
 
     try {
@@ -148,7 +197,7 @@ export async function refreshUserToken ({ refreshToken }) {
     };
 };
 
-export async function logoutUser ({ refreshToken }) {
+export async function logoutUser({ refreshToken }) {
     let decoded;
 
     try {
@@ -175,7 +224,7 @@ export async function logoutUser ({ refreshToken }) {
     return true;
 };
 
-export async function getCurrentUser (userId) {
+export async function getCurrentUser(userId) {
     const user = await User.findById(userId).select("-passwordHash");
 
     if (!user) {
@@ -185,7 +234,7 @@ export async function getCurrentUser (userId) {
     return user;
 };
 
-export async function verifyEmailToken ({ token }) {
+export async function verifyEmailToken({ token }) {
     const tokenHash = hashToken(token);
 
     const verificationRecord = await VerificationToken.findOne({
@@ -216,7 +265,7 @@ export async function verifyEmailToken ({ token }) {
     return true;
 };
 
-export async function requestPasswordReset ({ email }) {
+export async function requestPasswordReset({ email }) {
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -237,7 +286,7 @@ export async function requestPasswordReset ({ email }) {
     };
 };
 
-export async function resetPassword ({ token, password }) {
+export async function resetPassword({ token, password }) {
     const tokenHash = hashToken(token);
 
     const resetRecord = await PasswordResetToken.findOne({
