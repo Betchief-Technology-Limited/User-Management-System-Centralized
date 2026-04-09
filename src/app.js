@@ -53,7 +53,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", roleRoutes);
 app.use("/api/v1", permissionRoutes);
-app.use("/api/v1", invitationRoutes)
+app.use("/api/v1", invitationRoutes);
 
 //Error Handler 
 app.use(errorHandler);
