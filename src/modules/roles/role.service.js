@@ -33,7 +33,7 @@ export async function assignPermissionToRole(roleId, permissionId) {
     }
 
     const permission = await Permission.findById(permissionId);
-    if (!permissionId) {
+    if (!permission) {
         throw new AppError("Permission not found", 404)
     }
 
