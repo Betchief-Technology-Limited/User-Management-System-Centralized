@@ -13,6 +13,21 @@ import {
 
  permissionRoutes.use(requireAuth);
 
+ /**
+ * @openapi
+ * /permissions:
+ *   post:
+ *     tags: [Permissions]
+ *     summary: Create permission
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreatePermissionRequest'
+ */
  permissionRoutes.post(
     "/permissions",
     requirePermission("manage_permissions"),
@@ -20,6 +35,15 @@ import {
     asyncHandler(createPermissionHandler)
  );
 
+/**
+ * @openapi
+ * /permissions:
+ *   get:
+ *     tags: [Permissions]
+ *     summary: Get all permissions
+ *     security:
+ *       - bearerAuth: []
+ */
  permissionRoutes.get(
     "/permissions",
     requirePermission("manage_permissions"),

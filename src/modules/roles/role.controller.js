@@ -15,7 +15,7 @@ export async function createRoleHandler(req, res) {
 export async function getRolesHandler(req, res) {
     const roles = await getRoles();
 
-    return successResponse(res, "Role fetched successfully", { role })
+    return successResponse(res, "Role fetched successfully", { roles })
 }
 
 export async function assignPermissionToRoleHandler(req, res) {

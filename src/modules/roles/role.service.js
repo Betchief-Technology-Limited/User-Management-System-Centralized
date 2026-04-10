@@ -8,7 +8,7 @@ import { AppError } from "../../shared/errors/AppError.js";
 export async function createRole({ name, description }) {
     const existingRole = await Role.findOne({ name });
 
-    if (!existingRole) {
+    if (existingRole) {
         throw new AppError("Role already exists", 409)
     }
 
@@ -76,7 +76,7 @@ export async function assignRoleToUser({ userId, roleId }) {
         throw new AppError("Role already assigned to user", 409)
     }
 
-    const userRole = await Role.create({
+    const userRole = await UserRole.create({
         userId,
         roleId,
         organizationId: null
@@ -107,7 +107,6 @@ export async function getUserPermissions(userId) {
     }
 
     const permissionIds = rolePermissions.map((item) => item.permissionId);
-
     const permissions = await Permission.find({
         _id: { $in: permissionIds }
     });

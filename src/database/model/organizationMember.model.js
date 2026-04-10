@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-
 const organizationMemberSchema = new mongoose.Schema(
     {
         organizationId: {
