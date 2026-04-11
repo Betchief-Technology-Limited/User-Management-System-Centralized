@@ -124,6 +124,11 @@ export async function loginUser({
         throw new AppError("Invalid email or password", 401);
     }
 
+    //Blcok login until email is verified
+    if (!user.emailVerified) {
+        throw new AppError("Please verify your email before logging in")
+    }
+
     if (user.status !== "active") {
         throw new AppError("User account is not active", 403);
     }
@@ -180,6 +185,10 @@ export async function refreshUserToken({ refreshToken }) {
 
     if (!user || user.status !== "active") {
         throw new AppError("User is not authorized", 401);
+    }
+
+    if(!user.emailVerified){
+        throw new AppError("Please verify your email before continuing", 403)
     }
 
     const newPayload = buildAuthPayload(user);
