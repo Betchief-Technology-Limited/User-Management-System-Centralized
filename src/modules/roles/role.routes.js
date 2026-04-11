@@ -3,23 +3,23 @@ import asyncHandler from "../../middleware/async.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { requirePermission } from "./rbac.middleware.js";
-import { 
+import {
     assignPermissionToRoleHandler,
     assignRoleToUserHandler,
     createRoleHandler,
     getRolesHandler
- } from "./role.controller.js";
- import { 
+} from "./role.controller.js";
+import {
     assignPermissionToRoleSchema,
     assignRoleToUserSchema,
     createRoleSchema
- } from "./role.validation.js";
+} from "./role.validation.js";
 
- const roleRoutes = express.Router();
+const roleRoutes = express.Router();
 
- roleRoutes.use(requireAuth);
+roleRoutes.use(requireAuth);
 
- /**
+/**
  * @openapi
  * /roles:
  *   post:
@@ -35,12 +35,20 @@ import {
  *             $ref: '#/components/schemas/CreateRoleRequest'
  *     responses:
  *       201:
- *         description: Role created
+ *         description: Role created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
  *       409:
  *         description: Role already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
- roleRoutes.post(
-    "/roles", 
+roleRoutes.post(
+    "/roles",
     requirePermission("manage_roles"),
     validate(createRoleSchema),
     asyncHandler(createRoleHandler)
@@ -55,6 +63,19 @@ import {
  *     summary: Get all roles
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Roles fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RoleListResponse'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 roleRoutes.get(
     "/roles/all",

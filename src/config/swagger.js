@@ -167,6 +167,102 @@ const options = {
           },
         },
 
+        Role: {
+          type: "object",
+          properties: {
+            _id: {
+              type: "string",
+              example: "680ab1234c56d7890ef67890",
+            },
+            name: {
+              type: "string",
+              example: "Super Admin",
+            },
+            description: {
+              type: "string",
+              example: "Platform super administrator",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+              example: "2026-04-11T10:00:00.000Z",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+              example: "2026-04-11T10:00:00.000Z",
+            },
+          },
+        },
+
+        Permission: {
+          type: "object",
+          properties: {
+            _id: {
+              type: "string",
+              example: "680ab1234c56d7890ef12345",
+            },
+            name: {
+              type: "string",
+              example: "manage_roles",
+            },
+            description: {
+              type: "string",
+              example: "manage_roles permission",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+              example: "2026-04-11T10:00:00.000Z",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+              example: "2026-04-11T10:00:00.000Z",
+            },
+          },
+        },
+
+        RoleListResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+              example: "Roles fetched successfully",
+            },
+            data: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/Role",
+              },
+            },
+          },
+        },
+
+        PermissionListResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+              example: "Permissions fetched successfully",
+            },
+            data: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/Permission",
+              },
+            },
+          },
+        },
+        
         CreatePermissionRequest: {
           type: "object",
           required: ["name"],
