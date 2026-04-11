@@ -13,6 +13,21 @@ import { createInvitationSchema, acceptInvitationSchema } from "./invitation.val
 
 const invitationRoutes = express.Router();
 
+/**
+ * @openapi
+ * /invitations:
+ *   post:
+ *     tags: [Invitations]
+ *     summary: Invite user to role
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateInvitationRequest'
+ */
 invitationRoutes.post(
     "/invitations",
     requireAuth,
@@ -21,11 +36,37 @@ invitationRoutes.post(
     asyncHandler(createInvitationHandler)
 )
 
+/**
+ * @openapi
+ * /invitations/preview:
+ *   get:
+ *     tags: [Invitations]
+ *     summary: Preview invitation
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         required: true
+ *         schema:
+ *           type: string
+ */
 invitationRoutes.get(
     "/invitations/preview",
     asyncHandler(previewInvitationHandler)
 )
 
+/**
+ * @openapi
+ * /invitations/accept:
+ *   post:
+ *     tags: [Invitations]
+ *     summary: Accept invitation
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AcceptInvitationRequest'
+ */
 invitationRoutes.post(
     "/invitations/accept",
     validate(acceptInvitationSchema),
