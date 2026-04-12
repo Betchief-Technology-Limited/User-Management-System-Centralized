@@ -1,0 +1,37 @@
+export const USER_STATUS = Object.freeze({
+    INVITED: "invited",
+    ACTIVE: "active",
+    INACTIVE: "inactive",
+    SUSPENDED: "suspended"
+});
+
+export const INVITATION_STATUS = Object.freeze({
+    PENDING: "pending",
+    ACCEPTED: "accepted",
+    EXPIRED: "expired",
+    REVOKED: "revoked"
+});
+
+export const DEFAULT_SYSTEM_PERMISSIONS = Object.freeze([
+    "manage_users",
+    "manage_roles",
+    "manage_permissions"
+]);
+
+export const SYSTEM_ROLE = Object.freeze({
+    SUPER_ADMIN: "Super Admin",
+});
+
+export const AUDIT_ACTION = Object.freeze({
+    USER_REGISTERED: "USER_REGISTERED",
+    USER_INVITED: "USER_INVITED",
+    INVITATION_ACCEPTED: "INVITATION_ACCEPTED",
+    PASSWORD_CHANGED: "PASSWORD_CHANGED",
+    LOGIN_SUCCESS: "LOGIN_SUCCESS",
+    ROLE_CREATED: "ROLE_CREATED",
+    ROLE_ASSIGNED: "ROLE_ASSIGNED",
+    ROLE_REMOVED: "ROLE_REMOVED",
+    PERMISSION_CREATED: "PERMISSION_CREATED",
+    PERMISSION_ASSIGNED: "PERMISSION_ASSIGNED",
+    USER_STATUS_UPDATED: "USER_STATUS_UPDATED"
+})

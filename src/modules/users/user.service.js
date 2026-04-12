@@ -1,65 +1,97 @@
+import Session from "../../database/model/session.model.js";
 import User from "../../database/model/user.model.js";
 import { AppError } from "../../shared/errors/AppError.js";
-import { hashPassword } from "../auth/auth.utils.js";
+import {
+    AUDIT_ACTION,
+    USER_STATUS
+} from "../../shared/constants/system.js";
+import { recordAuditLog } from "../../shared/utils/auditLogger.js";
+import { getUserAccessProfile } from "../roles/role.service.js";
+// import { hashPassword } from "../auth/auth.utils.js";
 
-export async function createUser(data) {
-    const existingUser = await User.findOne({ email: data.email })
-
-    if (existingUser) {
-        throw new Error("User already exists", 409)
-    }
-
-    const passwordHash = await hashPassword(data.password);
-
-    const user = await User.create({
-        email: data.email,
-        passwordHash,
-        firstName: data.firstName,
-        lastName: data.lastName
-    });
-
-    return user;
+function sanitizeUserDocument(user) {
+    return typeof user.toJSON === "function" ? user.toJSON() : user
 }
 
+async function attachAccessProfile(user) {
+    const accessProfile = await getUserAccessProfile(user._id || user.id);
+
+    return {
+        ...sanitizeUserDocument(user),
+        ...accessProfile,
+    };
+}
+
+
+
 export async function getUsers() {
-    return User.find().select("-password")
+    const users = (await User.find()).toSorted({ createdAt: -1 })
+
+    return Promise.all(users.map((user) => attachAccessProfile(user)))
 }
 
 export async function getUserById(userId) {
-    const user = await User.findById(userId).select("-passwordHash");
+    const user = await User.findById(userId);
 
     if (!user) {
         throw new Error("User not found", 404);
     }
 
-    return user;
+    return attachAccessProfile(user);
 }
 
 export async function updateUser(userId, data) {
     const user = await User.findByIdAndUpdate(
         userId,
-        data, { new: true }
-    ).select("-passwordHash")
+        data, 
+        { 
+            returnDocument: "after",
+            runValidators: true
+         }
+    )
 
     if (!user) {
         throw new Error("User not found", 404)
     }
 
-    return user;
+    return attachAccessProfile(user);
 }
 
-export async function updateUserStatus(userId, status) {
+export async function updateUserStatus(userId, status, actedBy = null) {
+    const update = {
+        status
+    }
+
+    if(status === USER_STATUS.SUSPENDED){
+        await Session.updateMany(
+            { userId, isRevoked: false },
+            { $set: { isRevoked: true } }
+        )
+    }
+
     const user = await User.findByIdAndUpdate(
         userId,
-        { status },
-        { new: true }
-    ).select("-passwordHash");
+        update,
+        {
+            returnDocument: "after",
+            runValidators: true
+        }
+        
+    );
 
     if (!user) {
         throw new AppError("User not found", 404);
     }
 
-    return user;
+    await recordAuditLog({
+        userId: actedBy,
+        action: AUDIT_ACTION.USER_STATUS_UPDATED,
+        entity: "User",
+        entityId: user._id,
+        metadata: { status }
+    })
+
+    return attachAccessProfile(user);
 }
 
 export async function deleteUser(userId) {
@@ -69,5 +101,7 @@ export async function deleteUser(userId) {
         throw new AppError("User not found", 404);
     }
 
+    await Session.deleteMany({ userId });
+    
     return true;
 }

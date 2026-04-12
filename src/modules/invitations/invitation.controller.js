@@ -11,18 +11,18 @@ export async function createInvitationHandler(req, res) {
 }
 
 export async function previewInvitationHandler(req, res) {
-  const result = await previewInvitation(req.query.token);
+  const result = await previewInvitation(req.validatedQuery.token);
 
   return successResponse(res, "Invitation fetched successfully", result);
 }
 
 export async function acceptInvitationHandler(req, res) {
-  const user = await acceptInvitation(req.validatedBody);
+  const invitation = await acceptInvitation(req.validatedBody);
 
   return successResponse(
     res,
-    "Invitation accepted successfully. You can now log in.",
-    { user },
+    "Invitation accepted successfully. You can now log in with your temporary password.",
+    invitation,
     201
   );
 }

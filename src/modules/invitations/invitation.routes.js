@@ -9,7 +9,11 @@ import {
     acceptInvitationHandler 
 } from "./invitation.controller.js";
 
-import { createInvitationSchema, acceptInvitationSchema } from "./invitation.validation.js";
+import {
+    acceptInvitationSchema,
+    createInvitationSchema,
+    previewInvitationSchema,
+} from "./invitation.validation.js";
 
 const invitationRoutes = express.Router();
 
@@ -27,6 +31,19 @@ const invitationRoutes = express.Router();
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/CreateInvitationRequest'
+ *     responses:
+ *       201:
+ *         description: Invitation sent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InvitationResponse'
+ *       403:
+ *         description: Forbidden
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 invitationRoutes.post(
     "/invitations",
@@ -48,9 +65,23 @@ invitationRoutes.post(
  *         required: true
  *         schema:
  *           type: string
+ *     responses:
+ *       200:
+ *         description: Invitation fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InvitationPreviewResponse'
+ *       400:
+ *         description: Invalid or expired invitation token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 invitationRoutes.get(
     "/invitations/preview",
+    validate(previewInvitationSchema, "query"),
     asyncHandler(previewInvitationHandler)
 )
 
@@ -66,6 +97,19 @@ invitationRoutes.get(
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/AcceptInvitationRequest'
+ *     responses:
+ *       200:
+ *         description: Invitation activated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InvitationActivationResponse'
+ *       400:
+ *         description: Invalid or expired invitation token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 invitationRoutes.post(
     "/invitations/accept",

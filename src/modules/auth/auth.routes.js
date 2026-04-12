@@ -3,16 +3,18 @@ import asyncHandler from "../../middleware/async.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import {
+    changeUserPassword,
     forgotPassword,
     login,
     logout,
     me,
     refresh,
-    register,
+    registerInitialSuperAdmin,
     resetUserPassword,
     verifyEmail,
 } from "./auth.controller.js";
 import {
+    changePasswordSchema,
     forgotPasswordSchema,
     loginSchema,
     logoutSchema,
@@ -23,12 +25,13 @@ import {
 } from "./auth.validation.js";
 
 const authRoutes = express.Router();
+
 /**
  * @openapi
- * /auth/register:
+ * /auth/register-super-admin:
  *   post:
  *     tags: [Auth]
- *     summary: Register a new user
+ *     summary: Register the initial super admin
  *     requestBody:
  *       required: true
  *       content:
@@ -37,11 +40,23 @@ const authRoutes = express.Router();
  *             $ref: '#/components/schemas/RegisterRequest'
  *     responses:
  *       201:
- *         description: User registered successfully
+ *         description: Super admin registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
  *       409:
- *         description: User already exists
+ *         description: Super admin already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
-authRoutes.post("/register", validate(registerSchema), asyncHandler(register));
+authRoutes.post(
+    "/register-super-admin",
+    validate(registerSchema),
+    asyncHandler(registerInitialSuperAdmin)
+);
 
 /**
  * @openapi
@@ -58,8 +73,16 @@ authRoutes.post("/register", validate(registerSchema), asyncHandler(register));
  *     responses:
  *       200:
  *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
  *       401:
  *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/login", validate(loginSchema), asyncHandler(login));
 
@@ -83,8 +106,16 @@ authRoutes.post("/login", validate(loginSchema), asyncHandler(login));
  *     responses:
  *       200:
  *         description: Token refreshed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RefreshTokenResponse'
  *       401:
  *         description: Invalid or expired refresh token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/refresh", validate(refreshTokenSchema), asyncHandler(refresh));
 
@@ -108,8 +139,16 @@ authRoutes.post("/refresh", validate(refreshTokenSchema), asyncHandler(refresh))
  *     responses:
  *       200:
  *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
  *       401:
  *         description: Invalid or expired refresh token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/logout", validate(logoutSchema), asyncHandler(logout));
 
@@ -124,8 +163,47 @@ authRoutes.post("/logout", validate(logoutSchema), asyncHandler(logout));
  *     responses:
  *       200:
  *         description: Current user fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
  */
 authRoutes.get("/me", requireAuth, asyncHandler(me));
+
+/**
+ * @openapi
+ * /auth/change-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Change current user password
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChangePasswordRequest'
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
+ *       400:
+ *         description: Invalid password change request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+authRoutes.post(
+    "/change-password",
+    requireAuth,
+    validate(changePasswordSchema),
+    asyncHandler(changeUserPassword)
+);
 
 /**
  * @openapi
@@ -147,8 +225,16 @@ authRoutes.get("/me", requireAuth, asyncHandler(me));
  *     responses:
  *       200:
  *         description: Email verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
  *       400:
  *         description: Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/verify-email", validate(verifyEmailSchema), asyncHandler(verifyEmail));
 
@@ -171,7 +257,11 @@ authRoutes.post("/verify-email", validate(verifyEmailSchema), asyncHandler(verif
  *                 example: admin@example.com
  *     responses:
  *       200:
- *         description: Password reset token generated
+ *         description: Password reset request accepted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
  */
 authRoutes.post(
     "/forgot-password",
@@ -202,8 +292,16 @@ authRoutes.post(
  *     responses:
  *       200:
  *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
  *       400:
  *         description: Invalid or expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post(
     "/reset-password",

@@ -1,18 +1,11 @@
 import successResponse from "../../shared/utils/apiResponse.js";
 import {
-    createUser,
     deleteUser,
     getUserById,
     getUsers,
     updateUser,
     updateUserStatus
 } from "./user.service.js";
-
-export async function createUserHandler(req, res) {
-    const user = await createUser(req.validatedBody);
-
-    return successResponse(res, "User created successfully", { user }, 201);
-}
 
 export async function getUsersHandler(req, res) {
     const users = await getUsers();
@@ -35,7 +28,8 @@ export async function updateUserHandler(req, res) {
 export async function updateUserStatusHandler(req, res) {
     const user = await updateUserStatus(
         req.params.id,
-        req.validatedBody.status
+        req.validatedBody.status,
+        req.user.sub
     );
 
     return successResponse(res, "User status updated", { user })

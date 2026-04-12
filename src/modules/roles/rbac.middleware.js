@@ -1,11 +1,25 @@
 import { AppError } from "../../shared/errors/AppError.js";
+import { USER_STATUS } from "../../shared/constants/system.js";
 import { getUserPermissions } from "./role.service.js";
 
 export function requirePermission(permissionName) {
     return async function (req, res, next) {
         try {
-            if (!req.user?.sub) {
+            if (!req.user?.sub || req.currentUser) {
                 return next(new AppError("Unauthorized", 401))
+            }
+
+            if(req.currentUser.status !== USER_STATUS.ACTIVE){
+                return next(new AppError("User account is not active", 403))
+            }
+
+            if(req.currentUser.mustChangePassword){
+                return next(
+                    new AppError(
+                        "Password change is required before using protected resources",
+                        403
+                    )
+                )
             }
 
             const permissions = await getUserPermissions(req.user.sub);

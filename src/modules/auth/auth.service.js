@@ -1,22 +1,32 @@
-import User from "../../database/model/user.model.js";
-import Session from "../../database/model/session.model.js";
-import sendVerificationEmail from "./auth.email.js";
-import VerificationToken from "../../database/model/verificationToken.model.js";
 import PasswordResetToken from "../../database/model/passwordResetToken.model.js";
+import Permission from "../../database/model/permission.model.js";
+import RolePermission from "../../database/model/rolePermission.model.js";
+import Role from "../../database/model/role.model.js";
+import Session from "../../database/model/session.model.js";
+import UserRole from "../../database/model/userRole.model.js";
+import User from "../../database/model/user.model.js";
+import VerificationToken from "../../database/model/verificationToken.model.js";
+import { env } from "../../config/env.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import {
-    hashPassword,
+    AUDIT_ACTION,
+    DEFAULT_SYSTEM_PERMISSIONS,
+    SYSTEM_ROLE,
+    USER_STATUS
+} from "../../shared/constants/system.js";
+import { recordAuditLog } from "../../shared/utils/auditLogger.js";
+import sendVerificationEmail from "./auth.email.js";
+import {
     comparePassword,
     generateAccessToken,
     generateRandomToken,
     generateRefreshToken,
+    hashPassword,
+    hashToken,
     verifyRefreshToken,
-    hashToken
 } from "./auth.utils.js";
-import Role from "../../database/model/role.model.js";
-import Permission from "../../database/model/permission.model.js";
-import RolePermission from "../../database/model/rolePermission.model.js";
-import UserRole from "../../database/model/userRole.model.js";
+import { getUserAccessProfile } from "../roles/role.service.js";
+
 
 
 const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -27,11 +37,102 @@ const buildAuthPayload = (user) => ({
     email: user.email,
 });
 
-export async function registerUser({ email, password, firstName, lastName }) {
-    const existingUser = await User.findOne({ email });
+function sanitizeUserDocument(user) {
+    return typeof user.toJSON === "function" ? user.toJSON() : user;
+}
+
+async function attachAccessProfile(user) {
+    const accessProfile = await getUserAccessProfile(user._id || user.id);
+
+    return {
+        ...sanitizeUserDocument(user),
+        ...accessProfile
+    }
+}
+
+async function ensureSuperAdminRoleWithPermissions() {
+    const permissions = [];
+
+    for (const name of DEFAULT_SYSTEM_PERMISSIONS) {
+        const permission = await Permission.findOneAndUpdate(
+            { name },
+            {
+                $setOnInsert: {
+                    name,
+                    description: `${name} permission`
+                }
+            },
+            {
+                returnDocument: "after",
+                upsert: true,
+                setDefaultsOnInsert: true
+            }
+        );
+
+        permissions.push(permission)
+    }
+
+    const superAdminRole = await Role.findOneAndUpdate(
+        { name: SYSTEM_ROLE.SUPER_ADMIN },
+        {
+            $setOnInsert: {
+                name: SYSTEM_ROLE.SUPER_ADMIN,
+                description: "Platform super administrator"
+            },
+        },
+        {
+            returnDocument: "after",
+            upsert: true,
+            setDefaultsOnInsert: true
+        }
+    );
+
+    for (const permission of permissions) {
+        await RolePermission.updateOne(
+            {
+                roleId: superAdminRole._id,
+                permissionId: permission._id
+            },
+            {
+                $setOnInsert: {
+                    roleId: superAdminRole._id,
+                    permissionId: permission._id
+                },
+            },
+            { upsert: true }
+        );
+    }
+
+    return superAdminRole;
+}
+
+
+export async function registerSuperAdmin({
+    email,
+    password,
+    firstName,
+    lastName
+}) {
+
+    const [existingUser, superAdminRole] = await Promise.all([
+        User.findOne({ email }),
+        ensureSuperAdminRoleWithPermissions()
+    ])
 
     if (existingUser) {
         throw new AppError("User with this email already exists", 409);
+    }
+
+    const existingSuperAdminAssignment = await UserRole.findOne({
+        roleId: superAdminRole._id,
+        organizationId: null
+    })
+
+    if (existingSuperAdminAssignment) {
+        throw new AppError(
+            "A super admin already exists. Create additional admins through role assignment.",
+            409
+        )
     }
 
     const passwordHash = await hashPassword(password);
@@ -41,51 +142,15 @@ export async function registerUser({ email, password, firstName, lastName }) {
         passwordHash,
         firstName,
         lastName,
+        status: USER_STATUS.ACTIVE,
+        mustChangePassword: false
     });
 
-    const existingRoleCount = await Role.countDocuments();
-
-    if (existingRoleCount === 0) {
-        // Create permission
-        const permissionNames = [
-            "manage_users",
-            "manage_roles",
-            "manage_permissions"
-        ]
-
-        const permissions = [];
-
-        for (const name of permissionNames) {
-            const permission = await Permission.create({
-                name,
-                description: `${name} permission`
-            });
-            permissions.push(permission)
-        }
-
-        // Create Super admin role
-        const superAdminRole = await Role.create({
-            name: "Super Admin",
-            description: "Platform super administrator"
-        });
-
-        // Assign permissions to role
-        for (const permission of permissions) {
-            await RolePermission.create({
-                roleId: superAdminRole._id,
-                permissionId: permission._id
-            })
-        }
-
-        // Assign role to this user
-        await UserRole.create({
-            userId: user._id,
-            roleId: superAdminRole._id,
-            organizationId: null
-        });
-
-        console.log("👌 First user assigned as Super Admin")
-    }
+    await UserRole.create({
+        userId: user._id,
+        roleId: superAdminRole._id,
+        organizationId: null
+    })
 
     const rawVerificationToken = generateRandomToken();
     const verificationTokenHash = hashToken(rawVerificationToken);
@@ -100,10 +165,27 @@ export async function registerUser({ email, password, firstName, lastName }) {
         to: user.email,
         firstName: user.firstName,
         token: rawVerificationToken
+    });
+
+    await recordAuditLog({
+        userId: user._id,
+        action: AUDIT_ACTION.USER_REGISTERED,
+        entity: "User",
+        entityId: user._id,
+        metadata: { email: user.email, registrationType: "super_admin" }
     })
+
+    await recordAuditLog({
+        userId: user._id,
+        action: AUDIT_ACTION.ROLE_ASSIGNED,
+        entity: "UserRole",
+        metadata: { roleId: superAdminRole._id, registrationType: "super_admin" }
+    })
+
     return {
-        user,
-    };
+        user: await attachAccessProfile(user)
+    }
+
 };
 
 export async function loginUser({
@@ -112,7 +194,7 @@ export async function loginUser({
     deviceInfo,
     ipAddress,
 }) {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+passwordHash");
 
     if (!user) {
         throw new AppError("Invalid email or password", 401);
@@ -124,12 +206,19 @@ export async function loginUser({
         throw new AppError("Invalid email or password", 401);
     }
 
-    //Blcok login until email is verified
+    //Block login until email is verified
     if (!user.emailVerified) {
-        throw new AppError("Please verify your email before logging in")
+        if (user.status === USER_STATUS.INVITED) {
+            throw new AppError(
+                "Activate your invitation from the email link before logging in",
+                403
+            )
+        }
+
+        throw new AppError("Please verify your email before logging in", 403)
     }
 
-    if (user.status !== "active") {
+    if (user.status !== USER_STATUS.ACTIVE) {
         throw new AppError("User account is not active", 403);
     }
 
@@ -149,8 +238,15 @@ export async function loginUser({
     user.lastLoginAt = new Date();
     await user.save();
 
+    await recordAuditLog({
+        userId: user._id,
+        action: AUDIT_ACTION.LOGIN_SUCCESS,
+        entity: "Session",
+        metadata: { ipAddress, deviceInfo }
+    })
+
     return {
-        user,
+        user: await attachAccessProfile(user),
         accessToken,
         refreshToken,
     };
@@ -183,12 +279,16 @@ export async function refreshUserToken({ refreshToken }) {
 
     const user = await User.findById(decoded.sub);
 
-    if (!user || user.status !== "active") {
+    if (!user) {
         throw new AppError("User is not authorized", 401);
     }
 
-    if(!user.emailVerified){
+    if (!user.emailVerified) {
         throw new AppError("Please verify your email before continuing", 403)
+    }
+
+    if (user.status !== USER_STATUS.ACTIVE) {
+        throw new AppError("User account is not active", 403);
     }
 
     const newPayload = buildAuthPayload(user);
@@ -198,12 +298,13 @@ export async function refreshUserToken({ refreshToken }) {
 
     session.refreshTokenHash = newRefreshTokenHash;
     session.expiresAt = new Date(Date.now() + SEVEN_DAYS_IN_MS);
-    await session.save();
+    await session.save()
 
     return {
         accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-    };
+        refreshToken: newRefreshToken
+    }
+
 };
 
 export async function logoutUser({ refreshToken }) {
@@ -234,13 +335,13 @@ export async function logoutUser({ refreshToken }) {
 };
 
 export async function getCurrentUser(userId) {
-    const user = await User.findById(userId).select("-passwordHash");
+    const user = await User.findById(userId);
 
     if (!user) {
         throw new AppError("User not found", 404);
     }
 
-    return user;
+    return attachAccessProfile(user);
 };
 
 export async function verifyEmailToken({ token }) {
@@ -266,6 +367,7 @@ export async function verifyEmailToken({ token }) {
     }
 
     user.emailVerified = true;
+    user.emailVerifiedAt = new Date();
     await user.save();
 
     verificationRecord.usedAt = new Date();
@@ -278,7 +380,7 @@ export async function requestPasswordReset({ email }) {
     const user = await User.findOne({ email });
 
     if (!user) {
-        return { resetToken: null };
+        return env.NODE_ENV === "production" ? {} : { resetToken: null };
     }
 
     const rawResetToken = generateRandomToken();
@@ -290,9 +392,11 @@ export async function requestPasswordReset({ email }) {
         expiresAt: new Date(Date.now() + ONE_HOUR_IN_MS),
     });
 
-    return {
-        resetToken: rawResetToken,
-    };
+    return env.NODE_ENV === "production"
+        ? {}
+        : {
+            resetToken: rawResetToken,
+        };
 };
 
 export async function resetPassword({ token, password }) {
@@ -318,6 +422,7 @@ export async function resetPassword({ token, password }) {
     }
 
     user.passwordHash = await hashPassword(password);
+    user.mustChangePassword = false;
     await user.save();
 
     resetRecord.usedAt = new Date();
@@ -328,5 +433,48 @@ export async function resetPassword({ token, password }) {
         { $set: { isRevoked: true } }
     );
 
+    await recordAuditLog({
+        userId: user._id,
+        action: AUDIT_ACTION.PASSWORD_CHANGED,
+        entity: "User",
+        entityId: user._id,
+        metadata: { source: "reset_password" }
+    })
+
     return true;
 };
+
+export async function changePassword({
+    userId,
+    currentPassword,
+    newPassword
+}) {
+    const user = await User.findById(userId).select("+passwordHash");
+
+    if(!user){
+        throw new AppError("User not found", 404)
+    }
+
+    const isCurrentPasswordValid = await comparePassword(
+        currentPassword,
+        user.passwordHash
+    );
+
+    if(!isCurrentPasswordValid){
+        throw new AppError("Current password is incorrect", 400)
+    }
+
+    user.passwordHash = await hashPassword(newPassword);
+    user.mustChangePassword = false;
+    await user.save();
+
+    await recordAuditLog({
+        userId,
+        action: AUDIT_ACTION.PASSWORD_CHANGED,
+        entity: "User",
+        entityId: user._id,
+        metadata: { source: "change_password" }
+    });
+
+    return true;
+}

@@ -21,7 +21,6 @@ const options = {
           bearerFormat: "JWT",
         },
       },
-
       schemas: {
         ErrorResponse: {
           type: "object",
@@ -32,7 +31,7 @@ const options = {
             },
             message: {
               type: "string",
-              example: "Role already exists",
+              example: "Operation failed",
             },
           },
         },
@@ -47,6 +46,11 @@ const options = {
             message: {
               type: "string",
               example: "Operation successful",
+            },
+            data: {
+              type: "object",
+              additionalProperties: true,
+              example: {},
             },
           },
         },
@@ -89,29 +93,6 @@ const options = {
           },
         },
 
-        CreateUserRequest: {
-          type: "object",
-          required: ["email", "password", "firstName", "lastName"],
-          properties: {
-            email: {
-              type: "string",
-              example: "staff@example.com",
-            },
-            password: {
-              type: "string",
-              example: "password123",
-            },
-            firstName: {
-              type: "string",
-              example: "John",
-            },
-            lastName: {
-              type: "string",
-              example: "Doe",
-            },
-          },
-        },
-
         UpdateUserRequest: {
           type: "object",
           properties: {
@@ -133,6 +114,7 @@ const options = {
             },
             metadata: {
               type: "object",
+              additionalProperties: true,
               example: {
                 department: "Engineering",
               },
@@ -152,6 +134,21 @@ const options = {
           },
         },
 
+        ChangePasswordRequest: {
+          type: "object",
+          required: ["currentPassword", "newPassword"],
+          properties: {
+            currentPassword: {
+              type: "string",
+              example: "temporaryPassword123",
+            },
+            newPassword: {
+              type: "string",
+              example: "MySecurePassword123",
+            },
+          },
+        },
+
         CreateRoleRequest: {
           type: "object",
           required: ["name"],
@@ -167,30 +164,80 @@ const options = {
           },
         },
 
-        Role: {
+        CreatePermissionRequest: {
           type: "object",
+          required: ["name"],
           properties: {
-            _id: {
-              type: "string",
-              example: "680ab1234c56d7890ef67890",
-            },
             name: {
               type: "string",
-              example: "Super Admin",
+              example: "wallet.read",
             },
             description: {
               type: "string",
-              example: "Platform super administrator",
+              example: "Can read wallet records",
             },
-            createdAt: {
-              type: "string",
-              format: "date-time",
-              example: "2026-04-11T10:00:00.000Z",
+          },
+        },
+
+        AssignPermissionToRoleRequest: {
+          type: "object",
+          required: ["permissionIds"],
+          properties: {
+            permissionIds: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              example: ["680ab1234c56d7890ef12345"],
             },
-            updatedAt: {
+          },
+        },
+
+        AssignRoleToUserRequest: {
+          type: "object",
+          required: ["userId", "roleId"],
+          properties: {
+            userId: {
               type: "string",
-              format: "date-time",
-              example: "2026-04-11T10:00:00.000Z",
+              example: "680ab1234c56d7890ef12345",
+            },
+            roleId: {
+              type: "string",
+              example: "680ab1234c56d7890ef67890",
+            },
+          },
+        },
+
+        CreateInvitationRequest: {
+          type: "object",
+          required: ["email", "firstName", "lastName", "roleId"],
+          properties: {
+            email: {
+              type: "string",
+              example: "invitee@example.com",
+            },
+            firstName: {
+              type: "string",
+              example: "Jane",
+            },
+            lastName: {
+              type: "string",
+              example: "Doe",
+            },
+            roleId: {
+              type: "string",
+              example: "680ab1234c56d7890ef67890",
+            },
+          },
+        },
+
+        AcceptInvitationRequest: {
+          type: "object",
+          required: ["token"],
+          properties: {
+            token: {
+              type: "string",
+              example: "invitation_token_here",
             },
           },
         },
@@ -223,6 +270,407 @@ const options = {
           },
         },
 
+        RolePermission: {
+          type: "object",
+          properties: {
+            _id: {
+              type: "string",
+              example: "680ab1234c56d7890ef99999",
+            },
+            roleId: {
+              type: "string",
+              example: "680ab1234c56d7890ef67890",
+            },
+            permissionId: {
+              type: "string",
+              example: "680ab1234c56d7890ef12345",
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+          },
+        },
+
+        Role: {
+          type: "object",
+          properties: {
+            _id: {
+              type: "string",
+              example: "680ab1234c56d7890ef67890",
+            },
+            name: {
+              type: "string",
+              example: "Super Admin",
+            },
+            description: {
+              type: "string",
+              example: "Platform super administrator",
+            },
+            permissions: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/Permission",
+              },
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+              example: "2026-04-11T10:00:00.000Z",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+              example: "2026-04-11T10:00:00.000Z",
+            },
+          },
+        },
+
+        UserRoleSummary: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+              example: "680ab1234c56d7890ef67890",
+            },
+            name: {
+              type: "string",
+              example: "Super Admin",
+            },
+            description: {
+              type: "string",
+              example: "Platform super administrator",
+            },
+            assignedAt: {
+              type: "string",
+              format: "date-time",
+            },
+          },
+        },
+
+        UserRoleAssignment: {
+          type: "object",
+          properties: {
+            _id: {
+              type: "string",
+            },
+            userId: {
+              type: "string",
+            },
+            roleId: {
+              type: "string",
+            },
+            organizationId: {
+              type: "string",
+              nullable: true,
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+          },
+        },
+
+        User: {
+          type: "object",
+          properties: {
+            _id: {
+              type: "string",
+            },
+            email: {
+              type: "string",
+            },
+            firstName: {
+              type: "string",
+            },
+            lastName: {
+              type: "string",
+            },
+            status: {
+              type: "string",
+              example: "active",
+            },
+            emailVerified: {
+              type: "boolean",
+            },
+            emailVerifiedAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            mustChangePassword: {
+              type: "boolean",
+            },
+            invitedBy: {
+              type: "string",
+              nullable: true,
+            },
+            phoneNumber: {
+              type: "string",
+            },
+            profileImage: {
+              type: "string",
+            },
+            metadata: {
+              type: "object",
+              additionalProperties: true,
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+            roles: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/UserRoleSummary",
+              },
+            },
+            permissions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+          },
+        },
+
+        InvitationRecord: {
+          type: "object",
+          properties: {
+            _id: {
+              type: "string",
+            },
+            userId: {
+              type: "string",
+            },
+            email: {
+              type: "string",
+            },
+            firstName: {
+              type: "string",
+            },
+            lastName: {
+              type: "string",
+            },
+            roleId: {
+              type: "string",
+            },
+            invitedBy: {
+              type: "string",
+            },
+            status: {
+              type: "string",
+              example: "pending",
+            },
+            expiresAt: {
+              type: "string",
+              format: "date-time",
+            },
+            acceptedAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            createdAt: {
+              type: "string",
+              format: "date-time",
+            },
+            updatedAt: {
+              type: "string",
+              format: "date-time",
+            },
+          },
+        },
+
+        InvitationPreview: {
+          type: "object",
+          properties: {
+            email: {
+              type: "string",
+            },
+            firstName: {
+              type: "string",
+            },
+            lastName: {
+              type: "string",
+            },
+            expiresAt: {
+              type: "string",
+              format: "date-time",
+            },
+            invitationStatus: {
+              type: "string",
+              example: "pending",
+            },
+            role: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: {
+                  type: "string",
+                },
+                name: {
+                  type: "string",
+                },
+                description: {
+                  type: "string",
+                },
+              },
+            },
+            user: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: {
+                  type: "string",
+                },
+                emailVerified: {
+                  type: "boolean",
+                },
+                status: {
+                  type: "string",
+                },
+                mustChangePassword: {
+                  type: "boolean",
+                },
+              },
+            },
+          },
+        },
+
+        UserResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+            },
+            data: {
+              type: "object",
+              properties: {
+                user: {
+                  $ref: "#/components/schemas/User",
+                },
+              },
+            },
+          },
+        },
+
+        UserListResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+              example: "Users fetched successfully",
+            },
+            data: {
+              type: "object",
+              properties: {
+                users: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/User",
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        AuthResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+              example: "Login successful",
+            },
+            data: {
+              type: "object",
+              properties: {
+                user: {
+                  $ref: "#/components/schemas/User",
+                },
+                accessToken: {
+                  type: "string",
+                },
+                refreshToken: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+
+        RefreshTokenResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+              example: "Token refreshed successfully",
+            },
+            data: {
+              type: "object",
+              properties: {
+                accessToken: {
+                  type: "string",
+                },
+                refreshToken: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+
+        RoleResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+              example: "Role created successfully",
+            },
+            data: {
+              type: "object",
+              properties: {
+                role: {
+                  $ref: "#/components/schemas/Role",
+                },
+              },
+            },
+          },
+        },
+
         RoleListResponse: {
           type: "object",
           properties: {
@@ -232,12 +680,39 @@ const options = {
             },
             message: {
               type: "string",
-              example: "Roles fetched successfully",
+              example: "Role fetched successfully",
             },
             data: {
-              type: "array",
-              items: {
-                $ref: "#/components/schemas/Role",
+              type: "object",
+              properties: {
+                roles: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/Role",
+                  },
+                },
+              },
+            },
+          },
+        },
+
+        PermissionResponse: {
+          type: "object",
+          properties: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
+              type: "string",
+              example: "Permission created successfully",
+            },
+            data: {
+              type: "object",
+              properties: {
+                permission: {
+                  $ref: "#/components/schemas/Permission",
+                },
               },
             },
           },
@@ -255,89 +730,119 @@ const options = {
               example: "Permissions fetched successfully",
             },
             data: {
-              type: "array",
-              items: {
-                $ref: "#/components/schemas/Permission",
+              type: "object",
+              properties: {
+                permissions: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/Permission",
+                  },
+                },
               },
             },
           },
         },
-        
-        CreatePermissionRequest: {
+
+        RolePermissionAssignmentResponse: {
           type: "object",
-          required: ["name"],
           properties: {
-            name: {
-              type: "string",
-              example: "wallet.read",
+            success: {
+              type: "boolean",
+              example: true,
             },
-            description: {
+            message: {
               type: "string",
-              example: "Can read wallet records",
+              example: "Permissions assigned to role successfully",
+            },
+            data: {
+              type: "object",
+              properties: {
+                rolePermissions: {
+                  type: "array",
+                  items: {
+                    $ref: "#/components/schemas/RolePermission",
+                  },
+                },
+              },
             },
           },
         },
 
-        AssignPermissionToRoleRequest: {
+        UserRoleAssignmentResponse: {
           type: "object",
-          required: ["permissionId"],
           properties: {
-            permissionId: {
+            success: {
+              type: "boolean",
+              example: true,
+            },
+            message: {
               type: "string",
-              example: "680ab1234c56d7890ef12345",
+              example: "Role assigned to user successfully",
+            },
+            data: {
+              type: "object",
+              properties: {
+                userRole: {
+                  $ref: "#/components/schemas/UserRoleAssignment",
+                },
+              },
             },
           },
         },
 
-        AssignRoleToUserRequest: {
+        InvitationResponse: {
           type: "object",
-          required: ["userId", "roleId"],
           properties: {
-            userId: {
-              type: "string",
-              example: "680ab1234c56d7890ef12345",
+            success: {
+              type: "boolean",
+              example: true,
             },
-            roleId: {
+            message: {
               type: "string",
-              example: "680ab1234c56d7890ef67890",
+              example: "Invitation sent successfully",
+            },
+            data: {
+              type: "object",
+              properties: {
+                invitation: {
+                  $ref: "#/components/schemas/InvitationRecord",
+                },
+              },
             },
           },
         },
 
-        CreateInvitationRequest: {
+        InvitationPreviewResponse: {
           type: "object",
-          required: ["email", "roleId"],
           properties: {
-            email: {
-              type: "string",
-              example: "invitee@example.com",
+            success: {
+              type: "boolean",
+              example: true,
             },
-            roleId: {
+            message: {
               type: "string",
-              example: "680ab1234c56d7890ef67890",
+              example: "Invitation fetched successfully",
+            },
+            data: {
+              $ref: "#/components/schemas/InvitationPreview",
             },
           },
         },
 
-        AcceptInvitationRequest: {
+        InvitationActivationResponse: {
           type: "object",
-          required: ["token", "firstName", "lastName", "password"],
           properties: {
-            token: {
-              type: "string",
-              example: "invitation_token_here",
+            success: {
+              type: "boolean",
+              example: true,
             },
-            firstName: {
+            message: {
               type: "string",
-              example: "Jane",
+              example:
+                "Invitation activated successfully. You can now log in with your temporary password.",
             },
-            lastName: {
-              type: "string",
-              example: "Doe",
-            },
-            password: {
-              type: "string",
-              example: "password123",
+            data: {
+              $ref: "#/components/schemas/InvitationPreview",
             },
           },
         },
