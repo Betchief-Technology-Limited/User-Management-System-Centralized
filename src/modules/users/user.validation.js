@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { USER_STATUS } from "../../shared/constants/system";
+import { USER_STATUS } from "../../shared/constants/system.js";
 
 export const updateUserSchema = z.object({
   firstName: z.string().optional(),

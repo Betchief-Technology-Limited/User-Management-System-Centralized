@@ -2,7 +2,7 @@ import { AppError } from "../../shared/errors/AppError.js";
 import { verifyAccessToken } from "../auth/auth.utils.js";
 import User from "../../database/model/user.model.js";
 
-export const requireAuth = (req, res, next) => {
+export const requireAuth = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
