@@ -1,12 +1,19 @@
-export function inviteUserTemplate({ invitationLink, roleName }) {
-    return {
-        subject: "You have been invited to join the platform",
-        html: `
+export function inviteUserTemplate({
+  firstName,
+  invitationLink,
+  roleName,
+  temporaryPassword
+}) {
+  return {
+    subject: "You have been invited to join the platform",
+    html: `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h2>You have been invited</h2>
+        <p>Hello ${firstName}</p>
         <p>You have been invited to join the platform with the role <strong>${roleName}</strong>.</p>
-        <p>Click the button below to set your password and activate your account.</p>
-
+        <p>Click the button below to activate your email address, then sign in with your temporary password.</p>
+        <p><strong>Temporary password:</strong> ${temporaryPassword}</p>
+        
         <a href="${invitationLink}" 
            style="display:inline-block; padding:10px 20px; background:#000; color:#fff; text-decoration:none; border-radius:5px;">
           Accept Invitation
@@ -18,5 +25,5 @@ export function inviteUserTemplate({ invitationLink, roleName }) {
         <p>This invitation link will expire in 48 hours.</p>
       </div>
     `,
-    };
+  };
 }

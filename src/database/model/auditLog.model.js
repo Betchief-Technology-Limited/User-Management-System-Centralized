@@ -22,7 +22,8 @@ const auditLogSchema = new mongoose.Schema(
             type: Date,
             default: Date.now
         }
-    }
+    },
+    { timestamps: true }
 );
 
 const AuditLog = mongoose.model("AuditLog", auditLogSchema);

@@ -1,13 +1,30 @@
 import mongoose from "mongoose";
-import { lowercase } from "zod";
+import { INVITATION_STATUS } from "../../shared/constants/system.js";
+
 
 const invitationSchema = new mongoose.Schema({
+    userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+        index: true
+    },
     email: {
         type: String,
         required: true,
         lowercase: true,
         trim: true,
         index: true
+    },
+    firstName: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    lastName: {
+        type: String,
+        required: true,
+        trim: true
     },
     roleId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -27,8 +44,8 @@ const invitationSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["pending", "accepted", "expired", "revoked"],
-        default: "pending"
+        enum: Object.values(INVITATION_STATUS),
+        default: INVITATION_STATUS.PENDING
     },
     expiresAt: {
         type: Date,
@@ -41,7 +58,16 @@ const invitationSchema = new mongoose.Schema({
     },
 
 },
-    { timestamps: true }
+    {
+        timestamps: true,
+        toJSON: {
+            transform(_doc, ret){
+                delete ret.tokenHash;
+                delete ret.__v;
+                return ret
+            }
+        }
+    }
 )
 
 const Invitation = mongoose.model("Invitation", invitationSchema);

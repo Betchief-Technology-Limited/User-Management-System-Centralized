@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-
+import { USER_STATUS } from "../../shared/constants/system.js";
 
 const userSchema = new mongoose.Schema(
     {
@@ -26,26 +26,62 @@ const userSchema = new mongoose.Schema(
             trim: true
         },
         status: {
-            type:String,
-            enum: ["active", "inactive", "suspend"],
-            default: "active"
+            type: String,
+            enum: Object.values(USER_STATUS),
+            default: USER_STATUS.ACTIVE,
+            index: true
         },
         emailVerified: {
             type: Boolean,
             default: false
         },
+        emailVerifiedAt: {
+            type: Date,
+            default: null
+        },
+        mustChangePassword: {
+            type: Boolean,
+            default: false
+        },
+        phoneNumber: {
+            type: String,
+            trim: true
+        },
         profileImage: {
             type: String
         },
         metadata: {
-            type: Object,
+            type: mongoose.Schema.Types.Mixed,
             default: {}
+        },
+        invitedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            default: null
         },
         lastLoginAt: {
             type: Date,
         }
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        toJSON: {
+            transform(_doc, ret){
+                delete ret.passwordHash;
+                delete ret.__v;
+
+                if(ret.mustChangePassword !== true){
+                    delete ret.mustChangePassword
+                }
+
+                if(!ret.invitedBy){
+                    delete ret.invitedBy
+                }
+
+                return ret;
+            },
+        },
+    }
 );
 
 const User = mongoose.model("User", userSchema);

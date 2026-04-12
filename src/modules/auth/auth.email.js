@@ -30,14 +30,18 @@ export default sendVerificationEmail;
 
 export async function sendInvitationEmail({
     to,
+    firstName,
     token,
-    roleName
+    roleName,
+    temporaryPassword
 }) {
     const invitationLink = `${env.FRONTEND_URL}/accept-invitation?token=${token}`
 
     const template = inviteUserTemplate({
+        firstName,
         invitationLink,
-        roleName
+        roleName,
+        temporaryPassword
     });
 
     await resend.emails.send({

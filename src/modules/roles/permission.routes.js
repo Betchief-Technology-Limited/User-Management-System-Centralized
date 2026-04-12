@@ -33,7 +33,7 @@ permissionRoutes.use(requireAuth);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/SuccessMessageResponse'
+ *               $ref: '#/components/schemas/PermissionResponse'
  *       409:
  *         description: Permission already exists
  *         content:

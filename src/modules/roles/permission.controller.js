@@ -5,7 +5,10 @@ import {
 } from "./permission.service.js";
 
 export async function createPermissionHandler(req, res) {
-    const permission = await createPermission(req.validatedBody);
+    const permission = await createPermission({
+        ...req.validatedBody,
+        createdBy: req.user.sub
+    });
 
     return successResponse(res, "Permission created successfully", { permission }, 201);
 }

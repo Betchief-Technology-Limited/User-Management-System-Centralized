@@ -1,30 +1,24 @@
 import  successResponse  from "../../shared/utils/apiResponse.js";
 import {
+    changePassword,
     getCurrentUser,
     loginUser,
     logoutUser,
     refreshUserToken,
-    registerUser,
+    registerSuperAdmin,
     requestPasswordReset,
     resetPassword,
     verifyEmailToken,
 } from "./auth.service.js";
 
-export async function register (req, res) {
-    const result = await registerUser(req.validatedBody);
+export async function registerInitialSuperAdmin (req, res) {
+    const result = await registerSuperAdmin(req.validatedBody);
 
     return successResponse(
         res,
-        "User registered successfully.Please check your email to verify your account",
+        "Super admin registered successfully.Please check your email to verify your account",
         {
-            user: {
-                id: result.user._id,
-                email: result.user.email,
-                firstName: result.user.firstName,
-                lastName: result.user.lastName,
-                status: result.user.status,
-                emailVerified: result.user.emailVerified,
-            },
+            user: result.user,
         },
         201
     );
@@ -37,18 +31,7 @@ export async function login (req, res) {
         ipAddress: req.ip,
     });
 
-    return successResponse(res, "Login successful", {
-        user: {
-            id: result.user._id,
-            email: result.user.email,
-            firstName: result.user.firstName,
-            lastName: result.user.lastName,
-            status: result.user.status,
-            emailVerified: result.user.emailVerified,
-        },
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
-    });
+    return successResponse(res, "Login successful", result);
 };
 
 export async function refresh (req, res) {
@@ -78,7 +61,11 @@ export async function verifyEmail (req, res) {
 export async function forgotPassword (req, res) {
     const result = await requestPasswordReset(req.validatedBody);
 
-    return successResponse(res, "Password reset token generated", result);
+    return successResponse(
+        res, 
+        "If an account exists for this email, password reset instructions have been prepared", 
+        result
+    );
 };
 
 export async function resetUserPassword (req, res) {
@@ -86,3 +73,13 @@ export async function resetUserPassword (req, res) {
 
     return successResponse(res, "Password reset successfully");
 };
+
+export async function changeUserPassword(req, res) {
+    await changePassword({
+        userId: req.user.sub,
+        currentPassword: req.validatedBody.currentPassword,
+        newPassword: req.validatedBody.newPassword
+    })
+
+    return successResponse(res, "Password changed successfully")
+}

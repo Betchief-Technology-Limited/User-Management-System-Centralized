@@ -7,12 +7,14 @@ import {
     assignPermissionToRoleHandler,
     assignRoleToUserHandler,
     createRoleHandler,
-    getRolesHandler
+    getRolesHandler,
+    removeRoleFromUserHandler,
 } from "./role.controller.js";
 import {
     assignPermissionToRoleSchema,
     assignRoleToUserSchema,
-    createRoleSchema
+    createRoleSchema,
+    removeRoleFromUserSchema,
 } from "./role.validation.js";
 
 const roleRoutes = express.Router();
@@ -39,7 +41,7 @@ roleRoutes.use(requireAuth);
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/SuccessMessageResponse'
+ *               $ref: '#/components/schemas/RoleResponse'
  *       409:
  *         description: Role already exists
  *         content:
@@ -103,6 +105,19 @@ roleRoutes.get(
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/AssignPermissionToRoleRequest'
+ *     responses:
+ *       200:
+ *         description: Permissions assigned to role successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RolePermissionAssignmentResponse'
+ *       404:
+ *         description: Role or permission not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 roleRoutes.post(
     "/roles/:roleId/permissions",
@@ -125,6 +140,19 @@ roleRoutes.post(
  *         application/json:
  *           schema:
  *             $ref: '#/components/schemas/AssignRoleToUserRequest'
+ *     responses:
+ *       200:
+ *         description: Role assigned to user successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserRoleAssignmentResponse'
+ *       404:
+ *         description: User or role not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 roleRoutes.post(
     "/user-roles",
@@ -133,4 +161,44 @@ roleRoutes.post(
     asyncHandler(assignRoleToUserHandler)
 )
 
-export default roleRoutes
+/**
+ * @openapi
+ * /users/{userId}/roles/{roleId}:
+ *   delete:
+ *     tags: [Roles]
+ *     summary: Remove role from user
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: path
+ *         name: roleId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Role removed from user successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
+ *       404:
+ *         description: Role assignment not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+roleRoutes.delete(
+    "/users/:userId/roles/:roleId",
+    requirePermission("manage_users"),
+    validate(removeRoleFromUserSchema, "params"),
+    asyncHandler(removeRoleFromUserHandler)
+)
+
+export default roleRoutes;

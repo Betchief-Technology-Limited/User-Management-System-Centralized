@@ -4,7 +4,6 @@ import { validate } from "../../middleware/validate.middleware.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { requirePermission } from "../roles/rbac.middleware.js";
 import {
-    createUserHandler,
     deleteUserHandler,
     getUserHandler,
     getUsersHandler,
@@ -13,7 +12,6 @@ import {
 } from "./user.controller.js";
 
 import {
-    createUserSchema,
     updateUserSchema,
     updateUserStatusSchema
 } from "./user.validation.js";
@@ -21,33 +19,6 @@ import {
 const userRoutes = express.Router();
 
 userRoutes.use(requireAuth)
-
-/**
- * @openapi
- * /users:
- *   post:
- *     tags: [Users]
- *     summary: Create a new user
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CreateUserRequest'
- *     responses:
- *       201:
- *         description: User created successfully
- *       403:
- *         description: Forbidden
- */
-userRoutes.post(
-    "/users",
-    requirePermission("manage_users"),
-    validate(createUserSchema),
-    asyncHandler(createUserHandler)
-);
 
 /**
  * @openapi
@@ -60,6 +31,10 @@ userRoutes.post(
  *     responses:
  *       200:
  *         description: Users fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserListResponse'
  */
 userRoutes.get(
     "/users",
@@ -84,8 +59,16 @@ userRoutes.get(
  *     responses:
  *       200:
  *         description: User fetched
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
  *       404:
  *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 userRoutes.get(
     "/users/:id",
@@ -114,6 +97,10 @@ userRoutes.get(
  *     responses:
  *       200:
  *         description: User updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
  */
 userRoutes.patch(
     "/users/:id",
@@ -143,6 +130,10 @@ userRoutes.patch(
  *     responses:
  *       200:
  *         description: Status updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
  */
 userRoutes.patch(
     "/users/:id/status",
@@ -163,6 +154,10 @@ userRoutes.patch(
  *     responses:
  *       200:
  *         description: User deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessMessageResponse'
  */
 userRoutes.delete(
     "/users/:id",

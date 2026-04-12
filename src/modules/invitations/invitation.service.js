@@ -1,132 +1,220 @@
 import Invitation from "../../database/model/invitation.model.js";
-import User from "../../database/model/user.model.js";
 import Role from "../../database/model/role.model.js";
 import UserRole from "../../database/model/userRole.model.js";
+import User from "../../database/model/user.model.js";
 import { AppError } from "../../shared/errors/AppError.js";
-import { generateRandomToken, hashPassword, hashToken } from "../auth/auth.utils.js";
+import {
+    AUDIT_ACTION,
+    INVITATION_STATUS,
+    USER_STATUS
+} from "../../shared/constants/system.js";
+import { recordAuditLog } from "../../shared/utils/auditLogger.js";
+import {
+    generateRandomToken,
+    generateTemporaryPassword,
+    hashPassword,
+    hashToken
+} from "../auth/auth.utils.js";
 import { sendInvitationEmail } from "../auth/auth.email.js";
 
 const FORTY_EIGHT_HOURS_IN_MS = 48 * 60 * 60 * 1000;
 
-export async function createInvitation({ email, roleId, invitedBy }) {
-    const existingUser = await User.findOne({ email });
+async function findInvitationByToken(token) {
+    const tokenHash = hashToken(token);
 
-    if (existingUser) {
-        throw new AppError("User with this email already exists", 409);
+    const invitation = await Invitation.findOne({ tokenHash })
+        .populate("roleId", "name description")
+        .populate("userId")
+
+    if (!invitation) {
+        throw new AppError("Invalid invitation token", 400)
     }
 
-    const role = await Role.findById(roleId);
-
-    if (!role) {
-        throw new AppError("Role not found", 404);
+    if (
+        invitation.status === INVITATION_STATUS.REVOKED ||
+        invitation.status === INVITATION_STATUS.EXPIRED
+    ) {
+        throw new AppError("Invitation no longer valid", 400)
     }
 
-    const existingPendingInvitation = await Invitation.findOne({
-        email,
-        roleId,
-        status: "pending",
-        expiresAt: { $gt: new Date() },
-    });
-
-    if (existingPendingInvitation) {
-        throw new AppError("A pending invitation already exists for this email and role", 409);
+    if (
+        invitation.status === INVITATION_STATUS.PENDING &&
+        invitation.expiresAt < new Date()
+    ) {
+        invitation.status = INVITATION_STATUS.EXPIRED;
+        await invitation.save();
+        throw new AppError("Invitation token expired", 400)
     }
-
-    const rawToken = generateRandomToken();
-    const tokenHash = hashToken(rawToken);
-
-    const invitation = await Invitation.create({
-        email,
-        roleId,
-        invitedBy,
-        tokenHash,
-        status: "pending",
-        expiresAt: new Date(Date.now() + FORTY_EIGHT_HOURS_IN_MS),
-    });
-
-    await sendInvitationEmail({
-        to: email,
-        token: rawToken,
-        roleName: role.name,
-    });
 
     return invitation;
 }
 
-export async function previewInvitation(token) {
-    const tokenHash = hashToken(token);
-
-    const invitation = await Invitation.findOne({
-        tokenHash,
-        status: "pending",
-    }).populate("roleId");
-
-    if (!invitation) {
-        throw new AppError("Invalid invitation token", 400);
-    }
-
-    if (invitation.expiresAt < new Date()) {
-        invitation.status = "expired";
-        await invitation.save();
-        throw new AppError("Invitation token expired", 400);
-    }
+function buildInvitationPayload(invitation) {
+    const role = invitation.roleId;
+    const user = invitation.userId;
 
     return {
         email: invitation.email,
-        role: invitation.roleId,
+        firstName: invitation.firstName,
+        lastName: invitation.lastName,
         expiresAt: invitation.expiresAt,
-    };
+        invitationStatus: invitation.status,
+        role: role
+            ? {
+                id: role._id,
+                name: role.name,
+                description: role.description
+            }
+            : null,
+        user: user
+            ? {
+                id: user._id,
+                emailVerified: user.emailVerified,
+                status: user.status,
+                mustChangePassword: user.mustChangePassword
+            }
+            : null
+    }
 }
 
-export async function acceptInvitation({
-    token,
+export async function createInvitation({
+    email,
     firstName,
     lastName,
-    password,
+    roleId,
+    invitedBy
 }) {
-    const tokenHash = hashToken(token);
+    const normalizedEmail = email.toLowerCase().trim();
+    const role = await Role.findById(roleId);
 
-    const invitation = await Invitation.findOne({
-        tokenHash,
-        status: "pending",
-    });
-
-    if (!invitation) {
-        throw new AppError("Invalid invitation token", 400);
+    if (!role) {
+        throw new AppError("Role not found", 404)
     }
 
-    if (invitation.expiresAt < new Date()) {
-        invitation.status = "expired";
-        await invitation.save();
-        throw new AppError("Invitation token expired", 400);
+    const temporaryPassword = generateTemporaryPassword()
+    const passwordHash = await hashPassword(temporaryPassword);
+
+    let user = await User.findOne({ email: normalizedEmail }).select(
+        "+passwordHash"
+    )
+
+    if (user && user.status !== USER_STATUS) {
+        throw new AppError("A user with this email already exists", 409)
     }
 
-    const existingUser = await User.findOne({ email: invitation.email });
-
-    if (existingUser) {
-        throw new AppError("User with this email already exists", 409);
+    if (!user) {
+        user = await User.create({
+            email: normalizedEmail,
+            passwordHash,
+            firstName,
+            lastName,
+            status: USER_STATUS.INVITED,
+            emailVerified: false,
+            mustChangePassword: true,
+            invitedBy
+        })
+    } else {
+        user.firstName = firstName;
+        user.lastName = lastName;
+        user.passwordHash = passwordHash;
+        user.status = USER_STATUS.INVITED;
+        user.emailVerified = false;
+        user.emailVerifiedAt = null;
+        user.mustChangePassword = true;
+        user.invitedBy = invitedBy;
+        await user.save();
+        await UserRole.deleteMany({
+            userId: user._id,
+            organizationId: null
+        })
     }
 
-    const passwordHash = await hashPassword(password);
-
-    const user = await User.create({
-        email: invitation.email,
-        passwordHash,
-        firstName,
-        lastName,
-        status: "active",
-        emailVerified: true,
-    });
+    await Invitation.updateMany(
+        {
+            email: normalizedEmail,
+            status: INVITATION_STATUS.PENDING
+        },
+        {
+            $set: {
+                status: INVITATION_STATUS.REVOKED
+            }
+        }
+    );
 
     await UserRole.create({
         userId: user._id,
-        roleId: invitation.roleId,
-        organizationId: null,
+        roleId,
+        organizationId: null
     });
 
-    invitation.status = "accepted";
-    invitation.acceptedAt = new Date();
-    await invitation.save();
+    const rawToken = generateRandomToken();
+    const invitation = await Invitation.create({
+        userId: user._id,
+        email: normalizedEmail,
+        firstName,
+        lastName,
+        roleId,
+        invitedBy,
+        tokenHash: hashToken(rawToken),
+        status: INVITATION_STATUS.PENDING,
+        expiresAt: new Date(Date.now() + FORTY_EIGHT_HOURS_IN_MS)
+    });
 
-    return user;
+    await sendInvitationEmail({
+        to: normalizedEmail,
+        firstName,
+        token: rawToken,
+        roleName: role.name,
+        temporaryPassword
+    });
+
+    await recordAuditLog({
+        userId: invitedBy,
+        action: AUDIT_ACTION.USER_INVITED,
+        entity: "Invitation",
+        entityId: invitation._id,
+        metadata: {
+            email: normalizedEmail,
+            roleId,
+            invitedUserId: user._id
+        }
+    })
+
+    return invitation;
+
+}
+
+export async function previewInvitation(token) {
+    const invitation = await findInvitationByToken(token);  
+ 
+    return buildInvitationPayload(invitation)
+
+}
+
+export async function acceptInvitation({ token }) {
+    const invitation = await findInvitationByToken(token);
+    const user = invitation.userId;
+
+    if(!user){
+        throw new AppError("Invited user record no longer exist", 404)
+    }
+
+    if(invitation.status === INVITATION_STATUS.PENDING){
+        invitation.status = INVITATION_STATUS.ACCEPTED;
+        invitation.acceptedAt = new Date();
+        user.emailVerified = true,
+        user.emailVerifiedAt = new Date();
+        user.status = USER_STATUS.ACTIVE;
+        await Promise.all([invitation.save(), user.save()]);
+
+        await recordAuditLog({
+            userId: user._id,
+            action: AUDIT_ACTION.INVITATION_ACCEPTED,
+            entity: "Invitation",
+            entityId: invitation._id,
+            metadata: { roleId: invitation.roleId?._id || invitation.roleId }
+        })
+    }
+
+    return buildInvitationPayload(invitation)
 }

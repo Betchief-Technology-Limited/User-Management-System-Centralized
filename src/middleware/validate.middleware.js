@@ -1,7 +1,13 @@
 import { AppError } from "../shared/errors/AppError.js";
 
-export const validate = (schema) => (req, res, next) => {
-    const result = schema.safeParse(req.body);
+const requestTargetMap = {
+    body: "validatedBody",
+    query: "validatedQuery",
+    params: "validatedParams"
+}
+
+export const validate = (schema, target = "body") => (req, res, next) => {
+    const result = schema.safeParse(req[target]);
 
     if (!result.success) {
         return next(
@@ -12,6 +18,6 @@ export const validate = (schema) => (req, res, next) => {
         );
     }
 
-    req.validatedBody = result.data;
+    req[requestTargetMap[target] || "validatedBody"] = result.data;
     next();
 };
