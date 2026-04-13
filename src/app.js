@@ -20,7 +20,7 @@ const app = express();
 //this one is for security
 app.use(helmet());
 //parsing
-app.use(express.json())
+app.use(express.json());
 
 //this is for logging
 app.use(morgan("dev"));
@@ -40,7 +40,7 @@ const corsOrigin = {
     optionsSuccessStatus: 200
 }
 
-app.use(cors(corsOrigin))
+app.use(cors(corsOrigin));
 
 //for preflight request
 app.options(/.*/, cors(corsOrigin));
@@ -58,7 +58,7 @@ app.use("/api/v1", invitationRoutes);
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get("/api-docs.json", (req, res) => {
-    res.json(swaggerSpec)
+    res.json(swaggerSpec);
 });
 
 //Error Handler 
