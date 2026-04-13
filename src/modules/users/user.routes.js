@@ -8,11 +8,13 @@ import {
     getUserHandler,
     getUsersHandler,
     updateUserHandler,
+    updateUserPermissionOverridesHandler,
     updateUserStatusHandler
 } from "./user.controller.js";
 
 import {
     updateUserSchema,
+    updateUserPermissionOverridesSchema,
     updateUserStatusSchema
 } from "./user.validation.js";
 
@@ -140,6 +142,47 @@ userRoutes.patch(
     requirePermission("manage_users"),
     validate(updateUserStatusSchema),
     asyncHandler(updateUserStatusHandler)
+);
+
+/**
+ * @openapi
+ * /users/{id}/permission-overrides:
+ *   patch:
+ *     tags: [Users]
+ *     summary: Update denied permission overrides for a user
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UserPermissionOverridesRequest'
+ *     responses:
+ *       200:
+ *         description: User permission overrides updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/UserResponse'
+ *       400:
+ *         description: Invalid override list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+userRoutes.patch(
+    "/users/:id/permission-overrides",
+    requirePermission("manage_users"),
+    validate(updateUserPermissionOverridesSchema),
+    asyncHandler(updateUserPermissionOverridesHandler)
 );
 
 

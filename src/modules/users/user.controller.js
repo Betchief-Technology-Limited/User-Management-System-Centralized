@@ -4,6 +4,7 @@ import {
     getUserById,
     getUsers,
     updateUser,
+    updateUserPermissionOverrides,
     updateUserStatus
 } from "./user.service.js";
 
@@ -33,6 +34,16 @@ export async function updateUserStatusHandler(req, res) {
     );
 
     return successResponse(res, "User status updated", { user })
+}
+
+export async function updateUserPermissionOverridesHandler(req, res) {
+    const user = await updateUserPermissionOverrides(
+        req.params.id,
+        req.validatedBody.deniedPermissions,
+        req.user.sub
+    );
+
+    return successResponse(res, "User permission Overrides updated", { user })
 }
 
 export async function deleteUserHandler(req, res) {

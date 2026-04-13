@@ -10,7 +10,7 @@ const options = {
     },
     servers: [
       {
-        url: "https://user-management-system-centralized.onrender.com/api/v1",
+        url: "http://localhost:4008/api/v1",
       },
     ],
     components: {
@@ -134,6 +134,20 @@ const options = {
           },
         },
 
+        UserPermissionOverridesRequest: {
+          type: "object",
+          required: ["deniedPermissions"],
+          properties: {
+            deniedPermissions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              example: ["wallet.fund", "wallet.adjust"],
+            },
+          },
+        },
+
         ChangePasswordRequest: {
           type: "object",
           required: ["currentPassword", "newPassword"],
@@ -166,22 +180,50 @@ const options = {
 
         CreatePermissionRequest: {
           type: "object",
-          required: ["name"],
+          description:
+            "Provide either a permission name directly or a resource/action pair that will be normalized into a permission key.",
           properties: {
             name: {
               type: "string",
-              example: "wallet.read",
+              example: "wallet.fund",
+            },
+            resource: {
+              type: "string",
+              example: "wallet",
+            },
+            action: {
+              type: "string",
+              example: "fund",
             },
             description: {
               type: "string",
-              example: "Can read wallet records",
+              example: "Can fund wallet records",
+            },
+          },
+        },
+
+        PermissionGroupInput: {
+          type: "object",
+          required: ["resource", "actions"],
+          properties: {
+            resource: {
+              type: "string",
+              example: "wallet",
+            },
+            actions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              example: ["fund", "read", "adjust"],
             },
           },
         },
 
         AssignPermissionToRoleRequest: {
           type: "object",
-          required: ["permissionIds"],
+          description:
+            "Use either existing permissionIds or grouped permissions from a role-creation UI.",
           properties: {
             permissionIds: {
               type: "array",
@@ -189,6 +231,12 @@ const options = {
                 type: "string",
               },
               example: ["680ab1234c56d7890ef12345"],
+            },
+            permissions: {
+              type: "array",
+              items: {
+                $ref: "#/components/schemas/PermissionGroupInput",
+              },
             },
           },
         },
@@ -251,11 +299,21 @@ const options = {
             },
             name: {
               type: "string",
-              example: "manage_roles",
+              example: "wallet.fund",
+            },
+            resource: {
+              type: "string",
+              nullable: true,
+              example: "wallet",
+            },
+            action: {
+              type: "string",
+              nullable: true,
+              example: "fund",
             },
             description: {
               type: "string",
-              example: "manage_roles permission",
+              example: "Can fund wallet records",
             },
             createdAt: {
               type: "string",
@@ -412,6 +470,12 @@ const options = {
             invitedBy: {
               type: "string",
               nullable: true,
+            },
+            deniedPermissions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
             },
             phoneNumber: {
               type: "string",
