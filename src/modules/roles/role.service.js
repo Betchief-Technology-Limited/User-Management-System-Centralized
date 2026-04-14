@@ -6,10 +6,59 @@ import User from "../../database/model/user.model.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { AUDIT_ACTION } from "../../shared/constants/system.js";
 import { recordAuditLog } from "../../shared/utils/auditLogger.js";
+import { flattenPermissionGroups } from "../../shared/utils/permissionKey.js";
+
+function uniqueStrings(values = []) {
+    return [... new Set(values.map((value) => value.toString()))];
+}
+
+function buildPermissionSummary(permission) {
+    return {
+        id: permission._id,
+        name: permission.name,
+        resource: permission.resource,
+        action: permission.action,
+        description: permission.description
+    };
+}
 
 
-function uniqueIds(values = []) {
-    return [...new Set(values.map((value) => value.toString()))]
+async function getUserRoleAssignments(userId) {
+    return UserRole.find({
+        userId,
+        organizationId: null
+    }).lean()
+}
+
+async function getBaseUserPermissionRecords(userId) {
+    const userRoles = await getUserRoleAssignments(userId);
+
+    if (!userRoles.length) {
+        return [];
+    }
+
+    const roleIds = userRoles.map((item) => item.roleId);
+    const rolePermissions = await RolePermission.find({
+        roleId: { $in: roleIds },
+    }).lean();
+
+    if (!rolePermissions.length) {
+        return []
+    }
+
+    const permissionIds = uniqueStrings(
+        rolePermissions.map((item) => item.permissionId)
+    );
+
+    return Permission.find({
+        _id: { $in: permissionIds }
+    }).lean();
+}
+
+async function getUserDeniedPermissionKeys(userId) {
+    const user = await User.findById(userId).select("deniedPermissions").lean();
+
+    return uniqueStrings(user?.deniedPermissions || []);
 }
 
 
@@ -21,7 +70,7 @@ export async function createRole({ name, description, createdBy = null }) {
     }
 
     const role = await Role.create({
-        name,
+        name: name.trim(),
         description
     });
 
@@ -48,7 +97,7 @@ export async function getRoles() {
     const rolePermissions = await RolePermission.find({
         roleId: { $in: roleIds }
     })
-        .populate("permissionId", "name description")
+        .populate("permissionId", "name resource action description")
         .lean();
 
     const permissionMap = new Map();
@@ -58,11 +107,7 @@ export async function getRoles() {
         const currentPermissions = permissionMap.get(key) || [];
 
         if (assignment.permissionId) {
-            currentPermissions.push({
-                id: assignment.permissionId._id,
-                name: assignment.permissionId.name,
-                description: assignment.permissionId.description
-            })
+            currentPermissions.push(buildPermissionSummary(assignment.permissionId))
         }
 
         permissionMap.set(key, currentPermissions)
@@ -77,7 +122,7 @@ export async function getRoles() {
 // Assigning permission to roles created
 export async function assignPermissionToRole(
     roleId,
-    permissionIds,
+    assignmentInput,
     actedBy = null
 ) {
     const role = await Role.findById(roleId);
@@ -85,25 +130,63 @@ export async function assignPermissionToRole(
         throw new AppError("Role not found", 404);
     }
 
-    const normalizedPermissionIds = uniqueIds(permissionIds);
+    const normalizedPermissionIds = uniqueStrings(
+        assignmentInput.permissionIds || []
+    );
+
+    const permissionGroups = assignmentInput.permissions || [];
+
+    let resolvedPermissionIds = [...normalizedPermissionIds];
+
+    const autoCreatedPermission = [];
+
+    if (permissionGroups.length) {
+        const permissionDefinitions = flattenPermissionGroups(permissionGroups);
+
+        for (const permissionDefinition of permissionDefinitions) {
+            const permission = await Permission.findOneAndUpdate(
+                { name: permissionDefinition.name },
+                {
+                    $setOnInsert: {
+                        ...permissionDefinition,
+                        description: `${permissionDefinition.name} permission`,
+                    },
+                },
+                {
+                    returnDocument: "after",
+                    upsert: true,
+                    setDefaultsOnInsert: true
+                }
+            );
+
+            resolvedPermissionIds.push(permission._id.toString());
+
+            if (permission.createdAt?.getTime?.() === permission.updatedAt?.getTime?.()) {
+                autoCreatedPermission.push(permission.name)
+            }
+        }
+    }
+
+    resolvedPermissionIds = uniqueStrings(resolvedPermissionIds);
+
 
     const permissions = await Permission.find({
-        _id: { $in: normalizedPermissionIds }
+        _id: { $in: resolvedPermissionIds }
     })
-    if (permissions.length !== normalizedPermissionIds.length) {
+    if (permissions.length !== resolvedPermissionIds.length) {
         throw new AppError("One or more permissions were not found", 404)
     }
 
     const existingAssignments = await RolePermission.find({
         roleId,
-        permissionId: { $in: normalizedPermissionIds },
+        permissionId: { $in: resolvedPermissionIds },
     }).lean()
 
     const existingPermissionIds = new Set(
         existingAssignments.map((item) => item.permissionId.toString())
     );
 
-    const permissionIdsToAssign = normalizedPermissionIds.filter(
+    const permissionIdsToAssign = resolvedPermissionIds.filter(
         (permissionId) => !existingPermissionIds.has(permissionId)
     )
     if (!permissionIdsToAssign.length) {
@@ -125,7 +208,12 @@ export async function assignPermissionToRole(
         action: AUDIT_ACTION.PERMISSION_ASSIGNED,
         entity: "Role",
         entityId: role._id,
-        metadata: { permissionIds: permissionIdsToAssign }
+        metadata: {
+            permissionIds: permissionIdsToAssign,
+            ...(autoCreatedPermission.length
+                ? { autoCreatedPermission }
+                : {})
+        }
     })
 
     return assignments;
@@ -196,7 +284,7 @@ export async function removeRoleFromUser({ userId, roleId, actedBy = null }) {
 }
 
 export async function getUserRoles(userId) {
-    const userRoles = await User.find({
+    const userRoles = await UserRole.find({
         userId,
         organizationId: null
     })
@@ -213,43 +301,44 @@ export async function getUserRoles(userId) {
         }))
 }
 
+export async function getUserBasePermissionKeys(userId) {
+    const permissions = await getBaseUserPermissionRecords(userId);
+
+    return uniqueStrings(permissions.map((permission) => permission.name))
+}
+
 // Get user permission
 export async function getUserPermissions(userId) {
-    const userRoles = await UserRole.find({
-        userId,
-        organizationId: null
-    }).lean();
+    const [basePermissionKeys, deniedPermissionKeys] = await Promise.all([
+        getUserBasePermissionKeys(userId),
+        getUserDeniedPermissionKeys(userId)
+    ]);
 
-    if (!userRoles.length) {
-        return [];
-    }
-
-    const roleIds = userRoles.map((item) => item.roleId);
-
-    const rolePermissions = await RolePermission.find({
-        roleId: { $in: roleIds }
-    });
-
-    if (!rolePermissions.length) {
+    if (!basePermissionKeys.length) {
         return []
     }
 
-    const permissionIds = uniqueIds(
-        rolePermissions.map((item) => item.permissionId)
+    if (!deniedPermissionKeys.length) {
+        return basePermissionKeys;
+    }
+
+    const deniedPermissionSet = new Set(deniedPermissionKeys);
+
+    return basePermissionKeys.filter(
+        (permissionKey) => !deniedPermissionSet.has(permissionKey)
     );
-
-    const permissions = await Permission.find({
-        _id: { $in: permissionIds }
-    }).lean();
-
-    return uniqueIds((permissions.map((permission) => permission.name)));
 }
 
 export async function getUserAccessProfile(userId) {
-    const [roles, permissions] = await Promise.all([
+    const [roles, permissions, deniedPermissions] = await Promise.all([
         getUserRoles(userId),
-        getUserPermissions(userId)
+        getUserPermissions(userId),
+        getUserDeniedPermissionKeys(userId)
     ]);
 
-    return { roles, permissions }
+    return { 
+        roles, 
+        permissions,
+        ...(deniedPermissions.length ? { deniedPermissions } : {})
+     }
 }

@@ -17,3 +17,6 @@ export const updateUserStatusSchema = z.object({
   ]),
 });
 
+export const updateUserPermissionOverridesSchema = z.object({
+  deniedPermissions: z.string().min(1).default([])
+})

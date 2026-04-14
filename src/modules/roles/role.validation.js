@@ -9,9 +9,23 @@ export const createRoleSchema = z.object({
     description: z.string().optional()
 });
 
-export const assignPermissionToRoleSchema = z.object({
-    permissionIds: z.array(objectIdSchema).min(1)
+const permissionGroupSchema = z.object({
+    resource: z.string().min(1),
+    actions: z.array(z.string().min(1)).min(1)
 });
+
+export const assignPermissionToRoleSchema = z.object({
+    permissionIds: z.array(objectIdSchema).min(1).optional(),
+    permissions: z.array(permissionGroupSchema).min(1).optional()
+})
+    .refine(
+        (data) =>
+            Boolean(data.permissionIds?.length) || Boolean(data.permissions?.length),
+        {
+            message:
+            "Provide either permissionId or grouped permissions for assignment"
+        }
+)
 
 export const assignRoleToUserSchema = z.object({
     userId: objectIdSchema,

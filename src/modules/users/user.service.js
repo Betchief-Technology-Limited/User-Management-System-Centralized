@@ -1,16 +1,24 @@
+import Permission from "../../database/model/permission.model.js";
 import Session from "../../database/model/session.model.js";
 import User from "../../database/model/user.model.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import {
     AUDIT_ACTION,
-    USER_STATUS
+    USER_STATUS,
 } from "../../shared/constants/system.js";
 import { recordAuditLog } from "../../shared/utils/auditLogger.js";
-import { getUserAccessProfile } from "../roles/role.service.js";
-// import { hashPassword } from "../auth/auth.utils.js";
+import { normalizePermissionKey } from "../../shared/utils/permissionKey.js";
+import {
+    getUserAccessProfile,
+    getUserBasePermissionKeys,
+} from "../roles/role.service.js";
+
+function uniqueStrings(values = []) {
+    return [...new Set(values.map((value) => value.toString()))];
+}
 
 function sanitizeUserDocument(user) {
-    return typeof user.toJSON === "function" ? user.toJSON() : user
+    return typeof user.toJSON === "function" ? user.toJSON() : user;
 }
 
 async function attachAccessProfile(user) {
@@ -22,36 +30,30 @@ async function attachAccessProfile(user) {
     };
 }
 
-
-
 export async function getUsers() {
-    const users = (await User.find()).toSorted({ createdAt: -1 })
+    const users = await User.find().sort({ createdAt: -1 });
 
-    return Promise.all(users.map((user) => attachAccessProfile(user)))
+    return Promise.all(users.map((user) => attachAccessProfile(user)));
 }
 
 export async function getUserById(userId) {
     const user = await User.findById(userId);
 
     if (!user) {
-        throw new Error("User not found", 404);
+        throw new AppError("User not found", 404);
     }
 
     return attachAccessProfile(user);
 }
 
 export async function updateUser(userId, data) {
-    const user = await User.findByIdAndUpdate(
-        userId,
-        data, 
-        { 
-            returnDocument: "after",
-            runValidators: true
-         }
-    )
+    const user = await User.findByIdAndUpdate(userId, data, {
+        returnDocument: "after",
+        runValidators: true,
+    });
 
     if (!user) {
-        throw new Error("User not found", 404)
+        throw new AppError("User not found", 404);
     }
 
     return attachAccessProfile(user);
@@ -59,25 +61,20 @@ export async function updateUser(userId, data) {
 
 export async function updateUserStatus(userId, status, actedBy = null) {
     const update = {
-        status
-    }
+        status,
+    };
 
-    if(status === USER_STATUS.SUSPENDED){
+    if (status === USER_STATUS.SUSPENDED) {
         await Session.updateMany(
             { userId, isRevoked: false },
             { $set: { isRevoked: true } }
-        )
+        );
     }
 
-    const user = await User.findByIdAndUpdate(
-        userId,
-        update,
-        {
-            returnDocument: "after",
-            runValidators: true
-        }
-        
-    );
+    const user = await User.findByIdAndUpdate(userId, update, {
+        returnDocument: "after",
+        runValidators: true,
+    });
 
     if (!user) {
         throw new AppError("User not found", 404);
@@ -88,8 +85,62 @@ export async function updateUserStatus(userId, status, actedBy = null) {
         action: AUDIT_ACTION.USER_STATUS_UPDATED,
         entity: "User",
         entityId: user._id,
-        metadata: { status }
-    })
+        metadata: { status },
+    });
+
+    return attachAccessProfile(user);
+}
+
+export async function updateUserPermissionOverrides(
+    userId,
+    deniedPermissions,
+    actedBy = null
+) {
+    const user = await User.findById(userId);
+
+    if (!user) {
+        throw new AppError("User not found", 404);
+    }
+
+    const normalizedDeniedPermissions = uniqueStrings(
+        deniedPermissions.map((permission) => normalizePermissionKey(permission))
+    );
+
+    if (normalizedDeniedPermissions.length) {
+        const [existingPermissions, basePermissionKeys] = await Promise.all([
+            Permission.find({
+                name: { $in: normalizedDeniedPermissions },
+            }).lean(),
+            getUserBasePermissionKeys(userId),
+        ]);
+
+        if (existingPermissions.length !== normalizedDeniedPermissions.length) {
+            throw new AppError("One or more permissions do not exist", 404);
+        }
+
+        const basePermissionSet = new Set(basePermissionKeys);
+        const invalidOverrides = normalizedDeniedPermissions.filter(
+            (permission) => !basePermissionSet.has(permission)
+        );
+
+        if (invalidOverrides.length) {
+            throw new AppError(
+                "Denied permissions must come from the user's assigned role permissions",
+                400
+            );
+        }
+    }
+
+    user.deniedPermissions = normalizedDeniedPermissions;
+    await user.save();
+
+    await recordAuditLog({
+        userId: actedBy,
+        action: AUDIT_ACTION.USER_PERMISSION_OVERRIDES_UPDATED,
+        entity: "User",
+        entityId: user._id,
+        metadata: { deniedPermissions: normalizedDeniedPermissions },
+    });
 
     return attachAccessProfile(user);
 }
@@ -102,6 +153,6 @@ export async function deleteUser(userId) {
     }
 
     await Session.deleteMany({ userId });
-    
+
     return true;
 }

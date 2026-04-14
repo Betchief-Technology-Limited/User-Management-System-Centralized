@@ -10,6 +10,7 @@ import {
     resetPassword,
     verifyEmailToken,
 } from "./auth.service.js";
+import { setAuthCookies, clearAuthCookies } from "./auth.cookie.js";
 
 export async function registerInitialSuperAdmin (req, res) {
     const result = await registerSuperAdmin(req.validatedBody);
@@ -31,17 +32,34 @@ export async function login (req, res) {
         ipAddress: req.ip,
     });
 
-    return successResponse(res, "Login successful", result);
+    setAuthCookies(res, {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken
+    })
+
+    return successResponse(res, "Login successful", {
+        user: result.user,
+    });
 };
 
 export async function refresh (req, res) {
-    const tokens = await refreshUserToken(req.validatedBody);
+    const refreshToken = req.cookies?.refreshToken || req.validatedBody?.refreshToken;
+    
+    const tokens = await refreshUserToken({ refreshToken });
 
-    return successResponse(res, "Token refreshed successfully", tokens);
+    setAuthCookies(res, {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+    })
+
+    return successResponse(res, "Token refreshed successfully", {});
 };
 
 export async function logout (req, res) {
-    await logoutUser(req.validatedBody);
+    const refreshToken = req.cookies?.refreshToken || req.validatedBody?.refreshToken;
+
+    await logoutUser({ refreshToken });
+    clearAuthCookies(res)
 
     return successResponse(res, "Logout successful");
 };

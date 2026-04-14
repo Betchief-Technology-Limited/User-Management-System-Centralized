@@ -59,6 +59,10 @@ const userSchema = new mongoose.Schema(
             ref: "User",
             default: null
         },
+        deniedPermissions: {
+            type: [String],
+            default: []
+        },
         lastLoginAt: {
             type: Date,
         }
@@ -66,16 +70,20 @@ const userSchema = new mongoose.Schema(
     {
         timestamps: true,
         toJSON: {
-            transform(_doc, ret){
+            transform(_doc, ret) {
                 delete ret.passwordHash;
                 delete ret.__v;
 
-                if(ret.mustChangePassword !== true){
+                if (ret.mustChangePassword !== true) {
                     delete ret.mustChangePassword
                 }
 
-                if(!ret.invitedBy){
+                if (!ret.invitedBy) {
                     delete ret.invitedBy
+                }
+
+                if (!ret.deniedPermissions?.length) {
+                    delete ret.deniedPermissions
                 }
 
                 return ret;
