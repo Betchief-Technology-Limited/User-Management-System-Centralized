@@ -3,13 +3,19 @@ import { verifyAccessToken } from "../auth/auth.utils.js";
 import User from "../../database/model/user.model.js";
 
 export const requireAuth = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
+    const token = req.cookies?.accessToken;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return next(new AppError("Authorization token is required", 401));
+    if (!token) {
+        const authHeader = req.headers.authorization;
+        
+        if (authHeader || authHeader.startsWith("Bearer ")) {
+            token = authHeader.split(" ")[1];
+        }
     }
 
-    const token = authHeader.split(" ")[1];
+    if(!token){
+        return next(new AppError("Authorization token is required", 401))
+    }
 
     try {
         const decoded = verifyAccessToken(token);

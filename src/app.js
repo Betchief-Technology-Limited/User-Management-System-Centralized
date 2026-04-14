@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
+import cookieParser from "cookie-parser";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
@@ -45,6 +46,8 @@ app.use(cors(corsOrigin));
 //for preflight request
 app.options(/.*/, cors(corsOrigin));
 
+app.use(cookieParser())
+
 //rate limiting
 app.use(rateLimiter);
 
@@ -55,7 +58,14 @@ app.use("/api/v1", roleRoutes);
 app.use("/api/v1", permissionRoutes);
 app.use("/api/v1", invitationRoutes);
 
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(
+    "/api-docs", 
+    swaggerUi.serve, 
+    swaggerUi.setup(swaggerSpec, {
+        swaggerOptions: {
+            withCredentials: true
+        }
+    }));
 
 app.get("/api-docs.json", (req, res) => {
     res.json(swaggerSpec);
