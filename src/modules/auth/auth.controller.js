@@ -39,6 +39,8 @@ export async function login (req, res) {
 
     return successResponse(res, "Login successful", {
         user: result.user,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
     });
 };
 
