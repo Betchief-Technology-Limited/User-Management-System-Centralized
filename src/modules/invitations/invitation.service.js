@@ -1,6 +1,5 @@
 import Invitation from "../../database/model/invitation.model.js";
 import Role from "../../database/model/role.model.js";
-import UserRole from "../../database/model/userRole.model.js";
 import User from "../../database/model/user.model.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import {
@@ -23,18 +22,18 @@ async function findInvitationByToken(token) {
     const tokenHash = hashToken(token);
 
     const invitation = await Invitation.findOne({ tokenHash })
-        .populate("roleId", "name description")
-        .populate("userId")
+        .populate("roleId", "name description permissions")
+        .populate("userId");
 
     if (!invitation) {
-        throw new AppError("Invalid invitation token", 400)
+        throw new AppError("Invalid invitation token", 400);
     }
 
     if (
         invitation.status === INVITATION_STATUS.REVOKED ||
         invitation.status === INVITATION_STATUS.EXPIRED
     ) {
-        throw new AppError("Invitation no longer valid", 400)
+        throw new AppError("Invitation no longer valid", 400);
     }
 
     if (
@@ -43,7 +42,7 @@ async function findInvitationByToken(token) {
     ) {
         invitation.status = INVITATION_STATUS.EXPIRED;
         await invitation.save();
-        throw new AppError("Invitation token expired", 400)
+        throw new AppError("Invitation token expired", 400);
     }
 
     return invitation;
@@ -63,18 +62,20 @@ function buildInvitationPayload(invitation) {
             ? {
                 id: role._id,
                 name: role.name,
-                description: role.description
+                description: role.description,
+                permissions: role.permissions || []
             }
             : null,
         user: user
             ? {
                 id: user._id,
+                roleId: user.roleId,
                 emailVerified: user.emailVerified,
                 status: user.status,
                 mustChangePassword: user.mustChangePassword
             }
             : null
-    }
+    };
 }
 
 export async function createInvitation({
@@ -88,18 +89,16 @@ export async function createInvitation({
     const role = await Role.findById(roleId);
 
     if (!role) {
-        throw new AppError("Role not found", 404)
+        throw new AppError("Role not found", 404);
     }
 
-    const temporaryPassword = generateTemporaryPassword()
+    const temporaryPassword = generateTemporaryPassword();
     const passwordHash = await hashPassword(temporaryPassword);
 
-    let user = await User.findOne({ email: normalizedEmail }).select(
-        "+passwordHash"
-    )
+    let user = await User.findOne({ email: normalizedEmail }).select("+passwordHash");
 
-    if (user && user.status !== USER_STATUS) {
-        throw new AppError("A user with this email already exists", 409)
+    if (user && user.status !== USER_STATUS.INVITED) {
+        throw new AppError("A user with this email already exists", 409);
     }
 
     if (!user) {
@@ -108,25 +107,25 @@ export async function createInvitation({
             passwordHash,
             firstName,
             lastName,
+            roleId,
             status: USER_STATUS.INVITED,
             emailVerified: false,
             mustChangePassword: true,
-            invitedBy
-        })
+            invitedBy,
+            deniedPermissions: []
+        });
     } else {
         user.firstName = firstName;
         user.lastName = lastName;
         user.passwordHash = passwordHash;
+        user.roleId = roleId;
         user.status = USER_STATUS.INVITED;
         user.emailVerified = false;
         user.emailVerifiedAt = null;
         user.mustChangePassword = true;
         user.invitedBy = invitedBy;
+        user.deniedPermissions = [];
         await user.save();
-        await UserRole.deleteMany({
-            userId: user._id,
-            organizationId: null
-        })
     }
 
     await Invitation.updateMany(
@@ -140,12 +139,6 @@ export async function createInvitation({
             }
         }
     );
-
-    await UserRole.create({
-        userId: user._id,
-        roleId,
-        organizationId: null
-    });
 
     const rawToken = generateRandomToken();
     const invitation = await Invitation.create({
@@ -178,31 +171,29 @@ export async function createInvitation({
             roleId,
             invitedUserId: user._id
         }
-    })
+    });
 
     return invitation;
-
 }
 
 export async function previewInvitation(token) {
-    const invitation = await findInvitationByToken(token);  
- 
-    return buildInvitationPayload(invitation)
+    const invitation = await findInvitationByToken(token);
 
+    return buildInvitationPayload(invitation);
 }
 
 export async function acceptInvitation({ token }) {
     const invitation = await findInvitationByToken(token);
     const user = invitation.userId;
 
-    if(!user){
-        throw new AppError("Invited user record no longer exist", 404)
+    if (!user) {
+        throw new AppError("Invited user record no longer exist", 404);
     }
 
-    if(invitation.status === INVITATION_STATUS.PENDING){
+    if (invitation.status === INVITATION_STATUS.PENDING) {
         invitation.status = INVITATION_STATUS.ACCEPTED;
         invitation.acceptedAt = new Date();
-        user.emailVerified = true,
+        user.emailVerified = true;
         user.emailVerifiedAt = new Date();
         user.status = USER_STATUS.ACTIVE;
         await Promise.all([invitation.save(), user.save()]);
@@ -213,8 +204,8 @@ export async function acceptInvitation({ token }) {
             entity: "Invitation",
             entityId: invitation._id,
             metadata: { roleId: invitation.roleId?._id || invitation.roleId }
-        })
+        });
     }
 
-    return buildInvitationPayload(invitation)
+    return buildInvitationPayload(invitation);
 }

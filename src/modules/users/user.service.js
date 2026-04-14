@@ -1,4 +1,4 @@
-import Permission from "../../database/model/permission.model.js";
+import Role from "../../database/model/role.model.js";
 import Session from "../../database/model/session.model.js";
 import User from "../../database/model/user.model.js";
 import { AppError } from "../../shared/errors/AppError.js";
@@ -8,26 +8,40 @@ import {
 } from "../../shared/constants/system.js";
 import { recordAuditLog } from "../../shared/utils/auditLogger.js";
 import { normalizePermissionKey } from "../../shared/utils/permissionKey.js";
-import {
-    getUserAccessProfile,
-    getUserBasePermissionKeys,
-} from "../roles/role.service.js";
+import { getUserAccessProfile, normalizePermissionList } from "../roles/role.service.js";
 
-function uniqueStrings(values = []) {
-    return [...new Set(values.map((value) => value.toString()))];
-}
+async function attachAccessProfile(userOrId) {
+    const userId = userOrId?._id || userOrId?.id || userOrId;
+    const hydratedUser = await User.findById(userId).populate(
+        "roleId",
+        "name description permissions"
+    );
 
-function sanitizeUserDocument(user) {
-    return typeof user.toJSON === "function" ? user.toJSON() : user;
-}
+    if (!hydratedUser) {
+        throw new AppError("User not found", 404);
+    }
 
-async function attachAccessProfile(user) {
-    const accessProfile = await getUserAccessProfile(user._id || user.id);
+    const accessProfile = await getUserAccessProfile(hydratedUser._id);
+    const sanitizedUser = typeof hydratedUser.toJSON === "function"
+        ? hydratedUser.toJSON()
+        : hydratedUser;
+
+    if (accessProfile.role) {
+        sanitizedUser.roleId = accessProfile.role.id;
+    }
 
     return {
-        ...sanitizeUserDocument(user),
+        ...sanitizedUser,
         ...accessProfile,
     };
+}
+
+function getUpdatedFieldNames(updateData = {}) {
+    return Object.keys(updateData).filter((key) => updateData[key] !== undefined);
+}
+
+function normalizeDeniedPermissions(permissions = []) {
+    return [...new Set(permissions.map((permission) => normalizePermissionKey(permission)).filter(Boolean))];
 }
 
 export async function getUsers() {
@@ -37,110 +51,154 @@ export async function getUsers() {
 }
 
 export async function getUserById(userId) {
-    const user = await User.findById(userId);
+    return attachAccessProfile(userId);
+}
+
+export async function updateUser(userId, data, actedBy = null) {
+    const user = await User.findById(userId).populate(
+        "roleId",
+        "name description permissions"
+    );
 
     if (!user) {
         throw new AppError("User not found", 404);
     }
 
-    return attachAccessProfile(user);
-}
+    const updateData = { ...data };
+    let nextRole = user.roleId;
 
-export async function updateUser(userId, data) {
-    const user = await User.findByIdAndUpdate(userId, data, {
-        returnDocument: "after",
-        runValidators: true,
-    });
+    if (Object.prototype.hasOwnProperty.call(updateData, "roleId")) {
+        if (updateData.roleId === null) {
+            nextRole = null;
+            user.roleId = null;
+        } else {
+            nextRole = await Role.findById(updateData.roleId);
 
-    if (!user) {
-        throw new AppError("User not found", 404);
+            if (!nextRole) {
+                throw new AppError("Role not found", 404);
+            }
+
+            user.roleId = nextRole._id;
+        }
     }
 
-    return attachAccessProfile(user);
-}
+    if (updateData.firstName !== undefined) {
+        user.firstName = updateData.firstName;
+    }
 
-export async function updateUserStatus(userId, status, actedBy = null) {
-    const update = {
-        status,
-    };
+    if (updateData.lastName !== undefined) {
+        user.lastName = updateData.lastName;
+    }
 
-    if (status === USER_STATUS.SUSPENDED) {
+    if (updateData.phoneNumber !== undefined) {
+        user.phoneNumber = updateData.phoneNumber;
+    }
+
+    if (updateData.profileImage !== undefined) {
+        user.profileImage = updateData.profileImage;
+    }
+
+    if (updateData.metadata !== undefined) {
+        user.metadata = updateData.metadata;
+    }
+
+    if (updateData.status !== undefined) {
+        user.status = updateData.status;
+    }
+
+    let deniedPermissions = Object.prototype.hasOwnProperty.call(
+        updateData,
+        "deniedPermissions"
+    )
+        ? normalizeDeniedPermissions(updateData.deniedPermissions)
+        : normalizePermissionList(user.deniedPermissions || []);
+
+    if (
+        Object.prototype.hasOwnProperty.call(updateData, "roleId") &&
+        updateData.roleId === null &&
+        !Object.prototype.hasOwnProperty.call(updateData, "deniedPermissions")
+    ) {
+        deniedPermissions = [];
+    }
+
+    if (nextRole) {
+        const allowedPermissionSet = new Set(
+            normalizePermissionList(nextRole.permissions || [])
+        );
+
+        if (Object.prototype.hasOwnProperty.call(updateData, "deniedPermissions")) {
+            const invalidOverrides = deniedPermissions.filter(
+                (permission) => !allowedPermissionSet.has(permission)
+            );
+
+            if (invalidOverrides.length) {
+                throw new AppError(
+                    "Denied permissions must come from the user's assigned role permissions",
+                    400
+                );
+            }
+        } else {
+            deniedPermissions = deniedPermissions.filter(
+                (permission) => allowedPermissionSet.has(permission)
+            );
+        }
+    } else if (deniedPermissions.length) {
+        throw new AppError("Denied permissions require an assigned role", 400);
+    }
+
+    user.deniedPermissions = deniedPermissions;
+    await user.save();
+
+    if (updateData.status && updateData.status !== USER_STATUS.ACTIVE) {
         await Session.updateMany(
             { userId, isRevoked: false },
             { $set: { isRevoked: true } }
         );
     }
 
-    const user = await User.findByIdAndUpdate(userId, update, {
-        returnDocument: "after",
-        runValidators: true,
-    });
+    const updatedFields = getUpdatedFieldNames(updateData);
 
-    if (!user) {
-        throw new AppError("User not found", 404);
+    if (updatedFields.length) {
+        await recordAuditLog({
+            userId: actedBy,
+            action: AUDIT_ACTION.USER_UPDATED,
+            entity: "User",
+            entityId: user._id,
+            metadata: { updatedFields },
+        });
     }
 
-    await recordAuditLog({
-        userId: actedBy,
-        action: AUDIT_ACTION.USER_STATUS_UPDATED,
-        entity: "User",
-        entityId: user._id,
-        metadata: { status },
-    });
-
-    return attachAccessProfile(user);
-}
-
-export async function updateUserPermissionOverrides(
-    userId,
-    deniedPermissions,
-    actedBy = null
-) {
-    const user = await User.findById(userId);
-
-    if (!user) {
-        throw new AppError("User not found", 404);
+    if (updateData.status) {
+        await recordAuditLog({
+            userId: actedBy,
+            action: AUDIT_ACTION.USER_STATUS_UPDATED,
+            entity: "User",
+            entityId: user._id,
+            metadata: { status: updateData.status },
+        });
     }
 
-    const normalizedDeniedPermissions = uniqueStrings(
-        deniedPermissions.map((permission) => normalizePermissionKey(permission))
-    );
-
-    if (normalizedDeniedPermissions.length) {
-        const [existingPermissions, basePermissionKeys] = await Promise.all([
-            Permission.find({
-                name: { $in: normalizedDeniedPermissions },
-            }).lean(),
-            getUserBasePermissionKeys(userId),
-        ]);
-
-        if (existingPermissions.length !== normalizedDeniedPermissions.length) {
-            throw new AppError("One or more permissions do not exist", 404);
-        }
-
-        const basePermissionSet = new Set(basePermissionKeys);
-        const invalidOverrides = normalizedDeniedPermissions.filter(
-            (permission) => !basePermissionSet.has(permission)
-        );
-
-        if (invalidOverrides.length) {
-            throw new AppError(
-                "Denied permissions must come from the user's assigned role permissions",
-                400
-            );
-        }
+    if (Object.prototype.hasOwnProperty.call(updateData, "roleId")) {
+        await recordAuditLog({
+            userId: actedBy,
+            action: updateData.roleId
+                ? AUDIT_ACTION.ROLE_ASSIGNED
+                : AUDIT_ACTION.ROLE_REMOVED,
+            entity: "User",
+            entityId: user._id,
+            metadata: { roleId: updateData.roleId },
+        });
     }
 
-    user.deniedPermissions = normalizedDeniedPermissions;
-    await user.save();
-
-    await recordAuditLog({
-        userId: actedBy,
-        action: AUDIT_ACTION.USER_PERMISSION_OVERRIDES_UPDATED,
-        entity: "User",
-        entityId: user._id,
-        metadata: { deniedPermissions: normalizedDeniedPermissions },
-    });
+    if (Object.prototype.hasOwnProperty.call(updateData, "deniedPermissions")) {
+        await recordAuditLog({
+            userId: actedBy,
+            action: AUDIT_ACTION.USER_PERMISSION_OVERRIDES_UPDATED,
+            entity: "User",
+            entityId: user._id,
+            metadata: { deniedPermissions },
+        });
+    }
 
     return attachAccessProfile(user);
 }

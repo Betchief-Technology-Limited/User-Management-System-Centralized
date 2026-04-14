@@ -10,9 +10,28 @@ const roleSchema = new mongoose.Schema(
         },
         description: {
             type: String
+        },
+        permissions: {
+            type: [
+                {
+                    type: String,
+                    trim: true,
+                    lowercase: true
+                }
+            ],
+            default: []
         }
     },
-    { timestamps: true }
+    {
+        timestamps: true,
+        toJSON: {
+            transform(_doc, ret) {
+                delete ret.__v;
+                ret.permissions = [...new Set(ret.permissions || [])];
+                return ret;
+            }
+        }
+    }
 )
 
 const Role = mongoose.model("Role", roleSchema);

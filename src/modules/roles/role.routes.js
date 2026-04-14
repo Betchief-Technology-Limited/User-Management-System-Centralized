@@ -4,18 +4,10 @@ import { validate } from "../../middleware/validate.middleware.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { requirePermission } from "./rbac.middleware.js";
 import {
-    assignPermissionToRoleHandler,
-    assignRoleToUserHandler,
     createRoleHandler,
-    getRolesHandler,
-    removeRoleFromUserHandler,
+    getRolesHandler
 } from "./role.controller.js";
-import {
-    assignPermissionToRoleSchema,
-    assignRoleToUserSchema,
-    createRoleSchema,
-    removeRoleFromUserSchema,
-} from "./role.validation.js";
+import { createRoleSchema } from "./role.validation.js";
 
 const roleRoutes = express.Router();
 
@@ -29,6 +21,7 @@ roleRoutes.use(requireAuth);
  *     summary: Create role
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -56,7 +49,6 @@ roleRoutes.post(
     asyncHandler(createRoleHandler)
 );
 
-
 /**
  * @openapi
  * /roles/all:
@@ -65,6 +57,7 @@ roleRoutes.post(
  *     summary: Get all roles
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: Roles fetched successfully
@@ -72,133 +65,11 @@ roleRoutes.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/RoleListResponse'
- *       403:
- *         description: Forbidden
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 roleRoutes.get(
     "/roles/all",
     requirePermission("manage_roles"),
     asyncHandler(getRolesHandler)
 );
-
-/**
- * @openapi
- * /roles/{roleId}/permissions:
- *   post:
- *     tags: [Roles]
- *     summary: Assign permission to role
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: roleId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/AssignPermissionToRoleRequest'
- *     responses:
- *       200:
- *         description: Permissions assigned to role successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/RolePermissionAssignmentResponse'
- *       404:
- *         description: Role or permission not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-roleRoutes.post(
-    "/roles/:roleId/permissions",
-    requirePermission("manage_roles"),
-    validate(assignPermissionToRoleSchema),
-    asyncHandler(assignPermissionToRoleHandler)
-)
-
-/**
- * @openapi
- * /user-roles:
- *   post:
- *     tags: [Roles]
- *     summary: Assign role to user
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/AssignRoleToUserRequest'
- *     responses:
- *       200:
- *         description: Role assigned to user successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/UserRoleAssignmentResponse'
- *       404:
- *         description: User or role not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-roleRoutes.post(
-    "/user-roles",
-    requirePermission("manage_users"),
-    validate(assignRoleToUserSchema),
-    asyncHandler(assignRoleToUserHandler)
-)
-
-/**
- * @openapi
- * /users/{userId}/roles/{roleId}:
- *   delete:
- *     tags: [Roles]
- *     summary: Remove role from user
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: roleId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Role removed from user successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/SuccessMessageResponse'
- *       404:
- *         description: Role assignment not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-roleRoutes.delete(
-    "/users/:userId/roles/:roleId",
-    requirePermission("manage_users"),
-    validate(removeRoleFromUserSchema, "params"),
-    asyncHandler(removeRoleFromUserHandler)
-)
 
 export default roleRoutes;

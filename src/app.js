@@ -8,7 +8,6 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import roleRoutes from "./modules/roles/role.routes.js";
-import permissionRoutes from "./modules/roles/permission.routes.js";
 import invitationRoutes from "./modules/invitations/invitation.routes.js";
 
 import errorHandler from "./middleware/error.middleware.js";
@@ -55,12 +54,11 @@ app.use(rateLimiter);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", roleRoutes);
-app.use("/api/v1", permissionRoutes);
 app.use("/api/v1", invitationRoutes);
 
 app.use(
-    "/api-docs", 
-    swaggerUi.serve, 
+    "/api-docs",
+    swaggerUi.serve,
     swaggerUi.setup(swaggerSpec, {
         swaggerOptions: {
             withCredentials: true

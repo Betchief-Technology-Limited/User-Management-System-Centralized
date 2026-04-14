@@ -1,9 +1,6 @@
 import PasswordResetToken from "../../database/model/passwordResetToken.model.js";
-import Permission from "../../database/model/permission.model.js";
-import RolePermission from "../../database/model/rolePermission.model.js";
 import Role from "../../database/model/role.model.js";
 import Session from "../../database/model/session.model.js";
-import UserRole from "../../database/model/userRole.model.js";
 import User from "../../database/model/user.model.js";
 import VerificationToken from "../../database/model/verificationToken.model.js";
 import { env } from "../../config/env.js";
@@ -25,9 +22,7 @@ import {
     hashToken,
     verifyRefreshToken,
 } from "./auth.utils.js";
-import { getUserAccessProfile } from "../roles/role.service.js";
-
-
+import { getUserAccessProfile, normalizePermissionList } from "../roles/role.service.js";
 
 const SEVEN_DAYS_IN_MS = 7 * 24 * 60 * 60 * 1000;
 const ONE_HOUR_IN_MS = 60 * 60 * 1000;
@@ -41,71 +36,58 @@ function sanitizeUserDocument(user) {
     return typeof user.toJSON === "function" ? user.toJSON() : user;
 }
 
-async function attachAccessProfile(user) {
-    const accessProfile = await getUserAccessProfile(user._id || user.id);
+async function attachAccessProfile(userOrId) {
+    const userId = userOrId?._id || userOrId?.id || userOrId;
+    const hydratedUser = await User.findById(userId).populate(
+        "roleId",
+        "name description permissions"
+    );
+
+    if (!hydratedUser) {
+        throw new AppError("User not found", 404);
+    }
+
+    const accessProfile = await getUserAccessProfile(hydratedUser._id);
+    const sanitizedUser = sanitizeUserDocument(hydratedUser);
+
+    if (accessProfile.role) {
+        sanitizedUser.roleId = accessProfile.role.id;
+    }
 
     return {
-        ...sanitizeUserDocument(user),
+        ...sanitizedUser,
         ...accessProfile
-    }
+    };
 }
 
 async function ensureSuperAdminRoleWithPermissions() {
-    const permissions = [];
+    const defaultPermissions = normalizePermissionList(DEFAULT_SYSTEM_PERMISSIONS);
+    let superAdminRole = await Role.findOne({ name: SYSTEM_ROLE.SUPER_ADMIN });
 
-    for (const name of DEFAULT_SYSTEM_PERMISSIONS) {
-        const permission = await Permission.findOneAndUpdate(
-            { name },
-            {
-                $setOnInsert: {
-                    name,
-                    description: `${name} permission`
-                }
-            },
-            {
-                returnDocument: "after",
-                upsert: true,
-                setDefaultsOnInsert: true
-            }
-        );
+    if (!superAdminRole) {
+        superAdminRole = await Role.create({
+            name: SYSTEM_ROLE.SUPER_ADMIN,
+            description: "Platform super administrator",
+            permissions: defaultPermissions
+        });
 
-        permissions.push(permission)
+        return superAdminRole;
     }
 
-    const superAdminRole = await Role.findOneAndUpdate(
-        { name: SYSTEM_ROLE.SUPER_ADMIN },
-        {
-            $setOnInsert: {
-                name: SYSTEM_ROLE.SUPER_ADMIN,
-                description: "Platform super administrator"
-            },
-        },
-        {
-            returnDocument: "after",
-            upsert: true,
-            setDefaultsOnInsert: true
-        }
-    );
+    const mergedPermissions = normalizePermissionList([
+        ...(superAdminRole.permissions || []),
+        ...defaultPermissions
+    ]);
 
-    for (const permission of permissions) {
-        await RolePermission.updateOne(
-            {
-                roleId: superAdminRole._id,
-                permissionId: permission._id
-            },
-            {
-                $setOnInsert: {
-                    roleId: superAdminRole._id,
-                    permissionId: permission._id
-                },
-            },
-            { upsert: true }
-        );
+    if (
+        mergedPermissions.length !== (superAdminRole.permissions || []).length
+    ) {
+        superAdminRole.permissions = mergedPermissions;
+        await superAdminRole.save();
     }
 
     return superAdminRole;
 }
-
 
 export async function registerSuperAdmin({
     email,
@@ -113,44 +95,40 @@ export async function registerSuperAdmin({
     firstName,
     lastName
 }) {
+    const normalizedEmail = email.toLowerCase().trim();
 
     const [existingUser, superAdminRole] = await Promise.all([
-        User.findOne({ email }),
+        User.findOne({ email: normalizedEmail }),
         ensureSuperAdminRoleWithPermissions()
-    ])
+    ]);
 
     if (existingUser) {
         throw new AppError("User with this email already exists", 409);
     }
 
-    const existingSuperAdminAssignment = await UserRole.findOne({
-        roleId: superAdminRole._id,
-        organizationId: null
-    })
+    const existingSuperAdmin = await User.findOne({
+        roleId: superAdminRole._id
+    }).lean();
 
-    if (existingSuperAdminAssignment) {
+    if (existingSuperAdmin) {
         throw new AppError(
             "A super admin already exists. Create additional admins through role assignment.",
             409
-        )
+        );
     }
 
     const passwordHash = await hashPassword(password);
 
     const user = await User.create({
-        email,
+        email: normalizedEmail,
         passwordHash,
         firstName,
         lastName,
-        status: USER_STATUS.ACTIVE,
-        mustChangePassword: false
-    });
-
-    await UserRole.create({
-        userId: user._id,
         roleId: superAdminRole._id,
-        organizationId: null
-    })
+        status: USER_STATUS.ACTIVE,
+        mustChangePassword: false,
+        deniedPermissions: []
+    });
 
     const rawVerificationToken = generateRandomToken();
     const verificationTokenHash = hashToken(rawVerificationToken);
@@ -173,20 +151,20 @@ export async function registerSuperAdmin({
         entity: "User",
         entityId: user._id,
         metadata: { email: user.email, registrationType: "super_admin" }
-    })
+    });
 
     await recordAuditLog({
         userId: user._id,
         action: AUDIT_ACTION.ROLE_ASSIGNED,
-        entity: "UserRole",
+        entity: "User",
+        entityId: user._id,
         metadata: { roleId: superAdminRole._id, registrationType: "super_admin" }
-    })
+    });
 
     return {
         user: await attachAccessProfile(user)
-    }
-
-};
+    };
+}
 
 export async function loginUser({
     email,
@@ -194,7 +172,8 @@ export async function loginUser({
     deviceInfo,
     ipAddress,
 }) {
-    const user = await User.findOne({ email }).select("+passwordHash");
+    const user = await User.findOne({ email: email.toLowerCase().trim() })
+        .select("+passwordHash");
 
     if (!user) {
         throw new AppError("Invalid email or password", 401);
@@ -206,16 +185,15 @@ export async function loginUser({
         throw new AppError("Invalid email or password", 401);
     }
 
-    //Block login until email is verified
     if (!user.emailVerified) {
         if (user.status === USER_STATUS.INVITED) {
             throw new AppError(
                 "Activate your invitation from the email link before logging in",
                 403
-            )
+            );
         }
 
-        throw new AppError("Please verify your email before logging in", 403)
+        throw new AppError("Please verify your email before logging in", 403);
     }
 
     if (user.status !== USER_STATUS.ACTIVE) {
@@ -243,16 +221,20 @@ export async function loginUser({
         action: AUDIT_ACTION.LOGIN_SUCCESS,
         entity: "Session",
         metadata: { ipAddress, deviceInfo }
-    })
+    });
 
     return {
         user: await attachAccessProfile(user),
         accessToken,
         refreshToken,
     };
-};
+}
 
 export async function refreshUserToken({ refreshToken }) {
+    if (!refreshToken) {
+        throw new AppError("Refresh token is required", 401);
+    }
+
     let decoded;
 
     try {
@@ -284,7 +266,7 @@ export async function refreshUserToken({ refreshToken }) {
     }
 
     if (!user.emailVerified) {
-        throw new AppError("Please verify your email before continuing", 403)
+        throw new AppError("Please verify your email before continuing", 403);
     }
 
     if (user.status !== USER_STATUS.ACTIVE) {
@@ -298,16 +280,19 @@ export async function refreshUserToken({ refreshToken }) {
 
     session.refreshTokenHash = newRefreshTokenHash;
     session.expiresAt = new Date(Date.now() + SEVEN_DAYS_IN_MS);
-    await session.save()
+    await session.save();
 
     return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken
-    }
-
-};
+    };
+}
 
 export async function logoutUser({ refreshToken }) {
+    if (!refreshToken) {
+        throw new AppError("Refresh token is required", 401);
+    }
+
     let decoded;
 
     try {
@@ -332,17 +317,11 @@ export async function logoutUser({ refreshToken }) {
     await session.save();
 
     return true;
-};
+}
 
 export async function getCurrentUser(userId) {
-    const user = await User.findById(userId);
-
-    if (!user) {
-        throw new AppError("User not found", 404);
-    }
-
-    return attachAccessProfile(user);
-};
+    return attachAccessProfile(userId);
+}
 
 export async function verifyEmailToken({ token }) {
     const tokenHash = hashToken(token);
@@ -374,10 +353,10 @@ export async function verifyEmailToken({ token }) {
     await verificationRecord.save();
 
     return true;
-};
+}
 
 export async function requestPasswordReset({ email }) {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
 
     if (!user) {
         return env.NODE_ENV === "production" ? {} : { resetToken: null };
@@ -397,9 +376,13 @@ export async function requestPasswordReset({ email }) {
         : {
             resetToken: rawResetToken,
         };
-};
+}
 
-export async function resetPassword({ token, password }) {
+export async function resetPassword({ token, password, confirmPassword }) {
+    if (password !== confirmPassword) {
+        throw new AppError("Password confirmation does not match", 400);
+    }
+
     const tokenHash = hashToken(token);
 
     const resetRecord = await PasswordResetToken.findOne({
@@ -439,20 +422,25 @@ export async function resetPassword({ token, password }) {
         entity: "User",
         entityId: user._id,
         metadata: { source: "reset_password" }
-    })
+    });
 
     return true;
-};
+}
 
 export async function changePassword({
     userId,
     currentPassword,
-    newPassword
+    newPassword,
+    confirmPassword
 }) {
+    if (newPassword !== confirmPassword) {
+        throw new AppError("Password confirmation does not match", 400);
+    }
+
     const user = await User.findById(userId).select("+passwordHash");
 
-    if(!user){
-        throw new AppError("User not found", 404)
+    if (!user) {
+        throw new AppError("User not found", 404);
     }
 
     const isCurrentPasswordValid = await comparePassword(
@@ -460,13 +448,18 @@ export async function changePassword({
         user.passwordHash
     );
 
-    if(!isCurrentPasswordValid){
-        throw new AppError("Current password is incorrect", 400)
+    if (!isCurrentPasswordValid) {
+        throw new AppError("Current password is incorrect", 400);
     }
 
     user.passwordHash = await hashPassword(newPassword);
     user.mustChangePassword = false;
     await user.save();
+
+    await Session.updateMany(
+        { userId: user._id, isRevoked: false },
+        { $set: { isRevoked: true } }
+    );
 
     await recordAuditLog({
         userId,

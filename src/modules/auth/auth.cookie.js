@@ -6,10 +6,10 @@ const refreshTokenMaxAge = 7 * 24 * 60 * 60 * 1000;
 function getCookieBaseOptions() {
     return {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: env.NODE_ENV === "production",
+        sameSite: env.NODE_ENV === "production" ? "none" : "lax",
         path: "/",
-    }
+    };
 }
 
 export function setAuthCookies(res, { accessToken, refreshToken }) {
@@ -23,19 +23,17 @@ export function setAuthCookies(res, { accessToken, refreshToken }) {
     res.cookie("refreshToken", refreshToken, {
         ...baseOptions,
         maxAge: refreshTokenMaxAge
-    })
+    });
 }
 
-export function clearAuthCookies(res){
+export function clearAuthCookies(res) {
     const baseOptions = getCookieBaseOptions();
 
     res.clearCookie("accessToken", {
-        ...baseOptions,
-        maxAge: 0
+        ...baseOptions
     });
 
     res.clearCookie("refreshToken", {
-        ...baseOptions,
-        maxAge: 0
-    })
+        ...baseOptions
+    });
 }

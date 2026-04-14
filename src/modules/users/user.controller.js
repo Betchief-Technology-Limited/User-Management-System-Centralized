@@ -3,51 +3,29 @@ import {
     deleteUser,
     getUserById,
     getUsers,
-    updateUser,
-    updateUserPermissionOverrides,
-    updateUserStatus
+    updateUser
 } from "./user.service.js";
 
 export async function getUsersHandler(req, res) {
     const users = await getUsers();
 
-    return successResponse(res, "Users fetched successfully", { users })
+    return successResponse(res, "Users fetched successfully", { users });
 }
 
 export async function getUserHandler(req, res) {
     const user = await getUserById(req.params.id);
 
-    return successResponse(res, "User fetched successfully", { user })
+    return successResponse(res, "User fetched successfully", { user });
 }
 
 export async function updateUserHandler(req, res) {
-    const user = await updateUser(req.params.id, req.validatedBody);
+    const user = await updateUser(req.params.id, req.validatedBody, req.user.sub);
 
-    return successResponse(res, "User updated successfully", { user })
-}
-
-export async function updateUserStatusHandler(req, res) {
-    const user = await updateUserStatus(
-        req.params.id,
-        req.validatedBody.status,
-        req.user.sub
-    );
-
-    return successResponse(res, "User status updated", { user })
-}
-
-export async function updateUserPermissionOverridesHandler(req, res) {
-    const user = await updateUserPermissionOverrides(
-        req.params.id,
-        req.validatedBody.deniedPermissions,
-        req.user.sub
-    );
-
-    return successResponse(res, "User permission Overrides updated", { user })
+    return successResponse(res, "User updated successfully", { user });
 }
 
 export async function deleteUserHandler(req, res) {
     await deleteUser(req.params.id);
 
-    return successResponse(res, "User deleted successfully")
+    return successResponse(res, "User deleted successfully");
 }

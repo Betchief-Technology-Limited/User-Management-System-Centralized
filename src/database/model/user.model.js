@@ -13,7 +13,8 @@ const userSchema = new mongoose.Schema(
         },
         passwordHash: {
             type: String,
-            required: true
+            required: true,
+            select: false
         },
         firstName: {
             type: String,
@@ -54,13 +55,25 @@ const userSchema = new mongoose.Schema(
             type: mongoose.Schema.Types.Mixed,
             default: {}
         },
+        roleId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Role",
+            default: null,
+            index: true
+        },
         invitedBy: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
             default: null
         },
         deniedPermissions: {
-            type: [String],
+            type: [
+                {
+                    type: String,
+                    trim: true,
+                    lowercase: true
+                }
+            ],
             default: []
         },
         lastLoginAt: {
@@ -84,6 +97,9 @@ const userSchema = new mongoose.Schema(
 
                 if (!ret.deniedPermissions?.length) {
                     delete ret.deniedPermissions
+                }
+                if (!ret.roleId) {
+                    delete ret.roleId
                 }
 
                 return ret;
