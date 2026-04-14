@@ -8,19 +8,12 @@ import {
     getUserHandler,
     getUsersHandler,
     updateUserHandler,
-    updateUserPermissionOverridesHandler,
-    updateUserStatusHandler
 } from "./user.controller.js";
-
-import {
-    updateUserSchema,
-    updateUserPermissionOverridesSchema,
-    updateUserStatusSchema
-} from "./user.validation.js";
+import { updateUserSchema } from "./user.validation.js";
 
 const userRoutes = express.Router();
 
-userRoutes.use(requireAuth)
+userRoutes.use(requireAuth);
 
 /**
  * @openapi
@@ -30,6 +23,7 @@ userRoutes.use(requireAuth)
  *     summary: Get all users
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: Users fetched
@@ -52,6 +46,7 @@ userRoutes.get(
  *     summary: Get a single user
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -65,12 +60,6 @@ userRoutes.get(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/UserResponse'
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 userRoutes.get(
     "/users/:id",
@@ -83,9 +72,10 @@ userRoutes.get(
  * /users/{id}:
  *   patch:
  *     tags: [Users]
- *     summary: Update user
+ *     summary: Update a user, including status, role assignment, and denied permissions
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -113,87 +103,13 @@ userRoutes.patch(
 
 /**
  * @openapi
- * /users/{id}/status:
- *   patch:
- *     tags: [Users]
- *     summary: Update user status
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UpdateUserStatusRequest'
- *     responses:
- *       200:
- *         description: Status updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/UserResponse'
- */
-userRoutes.patch(
-    "/users/:id/status",
-    requirePermission("manage_users"),
-    validate(updateUserStatusSchema),
-    asyncHandler(updateUserStatusHandler)
-);
-
-/**
- * @openapi
- * /users/{id}/permission-overrides:
- *   patch:
- *     tags: [Users]
- *     summary: Update denied permission overrides for a user
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UserPermissionOverridesRequest'
- *     responses:
- *       200:
- *         description: User permission overrides updated
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/UserResponse'
- *       400:
- *         description: Invalid override list
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-userRoutes.patch(
-    "/users/:id/permission-overrides",
-    requirePermission("manage_users"),
-    validate(updateUserPermissionOverridesSchema),
-    asyncHandler(updateUserPermissionOverridesHandler)
-);
-
-
-/**
- * @openapi
  * /users/{id}:
  *   delete:
  *     tags: [Users]
  *     summary: Delete user
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: User deleted

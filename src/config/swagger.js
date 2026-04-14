@@ -103,6 +103,44 @@ const options = {
           },
         },
 
+        UpdatePasswordRequest: {
+          type: "object",
+          required: ["currentPassword", "newPassword", "confirmPassword"],
+          properties: {
+            currentPassword: {
+              type: "string",
+              example: "temporaryPassword123",
+            },
+            newPassword: {
+              type: "string",
+              example: "MySecurePassword123",
+            },
+            confirmPassword: {
+              type: "string",
+              example: "MySecurePassword123",
+            },
+          },
+        },
+
+        ResetPasswordRequest: {
+          type: "object",
+          required: ["token", "password", "confirmPassword"],
+          properties: {
+            token: {
+              type: "string",
+              example: "password_reset_token",
+            },
+            password: {
+              type: "string",
+              example: "newpassword123",
+            },
+            confirmPassword: {
+              type: "string",
+              example: "newpassword123",
+            },
+          },
+        },
+
         UpdateUserRequest: {
           type: "object",
           properties: {
@@ -129,139 +167,49 @@ const options = {
                 department: "Engineering",
               },
             },
-          },
-        },
-
-        UpdateUserStatusRequest: {
-          type: "object",
-          required: ["status"],
-          properties: {
+            roleId: {
+              type: "string",
+              nullable: true,
+              example: "680ab1234c56d7890ef67890",
+            },
             status: {
               type: "string",
               enum: ["active", "inactive", "suspended"],
               example: "inactive",
             },
-          },
-        },
-
-        UserPermissionOverridesRequest: {
-          type: "object",
-          required: ["deniedPermissions"],
-          properties: {
             deniedPermissions: {
               type: "array",
               items: {
                 type: "string",
               },
-              example: ["wallet.fund", "wallet.adjust"],
-            },
-          },
-        },
-
-        ChangePasswordRequest: {
-          type: "object",
-          required: ["currentPassword", "newPassword"],
-          properties: {
-            currentPassword: {
-              type: "string",
-              example: "temporaryPassword123",
-            },
-            newPassword: {
-              type: "string",
-              example: "MySecurePassword123",
+              example: ["wallet.fund", "wallet.delete"],
             },
           },
         },
 
         CreateRoleRequest: {
           type: "object",
-          required: ["name"],
+          required: ["name", "permissions"],
           properties: {
             name: {
               type: "string",
-              example: "Account",
+              example: "Account Officer",
             },
             description: {
               type: "string",
-              example: "Account management role",
-            },
-          },
-        },
-
-        CreatePermissionRequest: {
-          type: "object",
-          description:
-            "Provide either a permission name directly or a resource/action pair that will be normalized into a permission key.",
-          properties: {
-            name: {
-              type: "string",
-              example: "wallet.fund",
-            },
-            resource: {
-              type: "string",
-              example: "wallet",
-            },
-            action: {
-              type: "string",
-              example: "fund",
-            },
-            description: {
-              type: "string",
-              example: "Can fund wallet records",
-            },
-          },
-        },
-
-        PermissionGroupInput: {
-          type: "object",
-          required: ["resource", "actions"],
-          properties: {
-            resource: {
-              type: "string",
-              example: "wallet",
-            },
-            actions: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-              example: ["fund", "read", "adjust"],
-            },
-          },
-        },
-
-        AssignPermissionToRoleRequest: {
-          type: "object",
-          description:
-            "Use either existing permissionIds or grouped permissions from a role-creation UI.",
-          properties: {
-            permissionIds: {
-              type: "array",
-              items: {
-                type: "string",
-              },
-              example: ["680ab1234c56d7890ef12345"],
+              example: "Account operations role",
             },
             permissions: {
               type: "array",
               items: {
-                $ref: "#/components/schemas/PermissionGroupInput",
+                type: "string",
               },
-            },
-          },
-        },
-
-        AssignRoleToUserRequest: {
-          type: "object",
-          required: ["userId", "roleId"],
-          properties: {
-            userId: {
-              type: "string",
-              example: "680ab1234c56d7890ef12345",
-            },
-            roleId: {
-              type: "string",
-              example: "680ab1234c56d7890ef67890",
+              example: [
+                "wallet.read",
+                "wallet.fund",
+                "wallet.update",
+                "wallet.delete"
+              ],
             },
           },
         },
@@ -300,105 +248,7 @@ const options = {
           },
         },
 
-        Permission: {
-          type: "object",
-          properties: {
-            _id: {
-              type: "string",
-              example: "680ab1234c56d7890ef12345",
-            },
-            name: {
-              type: "string",
-              example: "wallet.fund",
-            },
-            resource: {
-              type: "string",
-              nullable: true,
-              example: "wallet",
-            },
-            action: {
-              type: "string",
-              nullable: true,
-              example: "fund",
-            },
-            description: {
-              type: "string",
-              example: "Can fund wallet records",
-            },
-            createdAt: {
-              type: "string",
-              format: "date-time",
-              example: "2026-04-11T10:00:00.000Z",
-            },
-            updatedAt: {
-              type: "string",
-              format: "date-time",
-              example: "2026-04-11T10:00:00.000Z",
-            },
-          },
-        },
-
-        RolePermission: {
-          type: "object",
-          properties: {
-            _id: {
-              type: "string",
-              example: "680ab1234c56d7890ef99999",
-            },
-            roleId: {
-              type: "string",
-              example: "680ab1234c56d7890ef67890",
-            },
-            permissionId: {
-              type: "string",
-              example: "680ab1234c56d7890ef12345",
-            },
-            createdAt: {
-              type: "string",
-              format: "date-time",
-            },
-            updatedAt: {
-              type: "string",
-              format: "date-time",
-            },
-          },
-        },
-
-        Role: {
-          type: "object",
-          properties: {
-            _id: {
-              type: "string",
-              example: "680ab1234c56d7890ef67890",
-            },
-            name: {
-              type: "string",
-              example: "Super Admin",
-            },
-            description: {
-              type: "string",
-              example: "Platform super administrator",
-            },
-            permissions: {
-              type: "array",
-              items: {
-                $ref: "#/components/schemas/Permission",
-              },
-            },
-            createdAt: {
-              type: "string",
-              format: "date-time",
-              example: "2026-04-11T10:00:00.000Z",
-            },
-            updatedAt: {
-              type: "string",
-              format: "date-time",
-              example: "2026-04-11T10:00:00.000Z",
-            },
-          },
-        },
-
-        UserRoleSummary: {
+        RoleSummary: {
           type: "object",
           properties: {
             id: {
@@ -413,28 +263,37 @@ const options = {
               type: "string",
               example: "Platform super administrator",
             },
-            assignedAt: {
-              type: "string",
-              format: "date-time",
+            permissions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              example: ["manage_users", "manage_roles"],
             },
           },
         },
 
-        UserRoleAssignment: {
+        Role: {
           type: "object",
           properties: {
             _id: {
               type: "string",
+              example: "680ab1234c56d7890ef67890",
             },
-            userId: {
+            name: {
               type: "string",
+              example: "Account Officer",
             },
-            roleId: {
+            description: {
               type: "string",
+              example: "Account operations role",
             },
-            organizationId: {
-              type: "string",
-              nullable: true,
+            permissions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              example: ["wallet.read", "wallet.fund", "wallet.update"],
             },
             createdAt: {
               type: "string",
@@ -481,7 +340,20 @@ const options = {
               type: "string",
               nullable: true,
             },
+            roleId: {
+              type: "string",
+              nullable: true,
+            },
+            role: {
+              $ref: "#/components/schemas/RoleSummary",
+            },
             deniedPermissions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+            allowedPermissions: {
               type: "array",
               items: {
                 type: "string",
@@ -504,18 +376,6 @@ const options = {
             updatedAt: {
               type: "string",
               format: "date-time",
-            },
-            roles: {
-              type: "array",
-              items: {
-                $ref: "#/components/schemas/UserRoleSummary",
-              },
-            },
-            permissions: {
-              type: "array",
-              items: {
-                type: "string",
-              },
             },
           },
         },
@@ -589,19 +449,7 @@ const options = {
               example: "pending",
             },
             role: {
-              type: "object",
-              nullable: true,
-              properties: {
-                id: {
-                  type: "string",
-                },
-                name: {
-                  type: "string",
-                },
-                description: {
-                  type: "string",
-                },
-              },
+              $ref: "#/components/schemas/RoleSummary",
             },
             user: {
               type: "object",
@@ -609,6 +457,10 @@ const options = {
               properties: {
                 id: {
                   type: "string",
+                },
+                roleId: {
+                  type: "string",
+                  nullable: true,
                 },
                 emailVerified: {
                   type: "boolean",
@@ -770,100 +622,6 @@ const options = {
           },
         },
 
-        PermissionResponse: {
-          type: "object",
-          properties: {
-            success: {
-              type: "boolean",
-              example: true,
-            },
-            message: {
-              type: "string",
-              example: "Permission created successfully",
-            },
-            data: {
-              type: "object",
-              properties: {
-                permission: {
-                  $ref: "#/components/schemas/Permission",
-                },
-              },
-            },
-          },
-        },
-
-        PermissionListResponse: {
-          type: "object",
-          properties: {
-            success: {
-              type: "boolean",
-              example: true,
-            },
-            message: {
-              type: "string",
-              example: "Permissions fetched successfully",
-            },
-            data: {
-              type: "object",
-              properties: {
-                permissions: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/Permission",
-                  },
-                },
-              },
-            },
-          },
-        },
-
-        RolePermissionAssignmentResponse: {
-          type: "object",
-          properties: {
-            success: {
-              type: "boolean",
-              example: true,
-            },
-            message: {
-              type: "string",
-              example: "Permissions assigned to role successfully",
-            },
-            data: {
-              type: "object",
-              properties: {
-                rolePermissions: {
-                  type: "array",
-                  items: {
-                    $ref: "#/components/schemas/RolePermission",
-                  },
-                },
-              },
-            },
-          },
-        },
-
-        UserRoleAssignmentResponse: {
-          type: "object",
-          properties: {
-            success: {
-              type: "boolean",
-              example: true,
-            },
-            message: {
-              type: "string",
-              example: "Role assigned to user successfully",
-            },
-            data: {
-              type: "object",
-              properties: {
-                userRole: {
-                  $ref: "#/components/schemas/UserRoleAssignment",
-                },
-              },
-            },
-          },
-        },
-
         InvitationResponse: {
           type: "object",
           properties: {
@@ -913,7 +671,7 @@ const options = {
             message: {
               type: "string",
               example:
-                "Invitation activated successfully. You can now log in with your temporary password.",
+                "Invitation accepted successfully. You can now log in with your temporary password.",
             },
             data: {
               $ref: "#/components/schemas/InvitationPreview",

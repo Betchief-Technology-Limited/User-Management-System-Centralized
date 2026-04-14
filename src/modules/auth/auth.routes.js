@@ -3,7 +3,6 @@ import asyncHandler from "../../middleware/async.middleware.js";
 import { validate } from "../../middleware/validate.middleware.js";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import {
-    changeUserPassword,
     forgotPassword,
     login,
     logout,
@@ -11,16 +10,17 @@ import {
     refresh,
     registerInitialSuperAdmin,
     resetUserPassword,
+    updateUserPassword,
     verifyEmail,
 } from "./auth.controller.js";
 import {
-    changePasswordSchema,
     forgotPasswordSchema,
     loginSchema,
     logoutSchema,
     refreshTokenSchema,
     registerSchema,
     resetPasswordSchema,
+    updatePasswordSchema,
     verifyEmailSchema,
 } from "./auth.validation.js";
 
@@ -45,12 +45,6 @@ const authRoutes = express.Router();
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/UserResponse'
- *       409:
- *         description: Super admin already exists
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post(
     "/register-super-admin",
@@ -77,12 +71,6 @@ authRoutes.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/AuthResponse'
- *       401:
- *         description: Invalid credentials
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/login", validate(loginSchema), asyncHandler(login));
 
@@ -91,14 +79,13 @@ authRoutes.post("/login", validate(loginSchema), asyncHandler(login));
  * /auth/refresh:
  *   post:
  *     tags: [Auth]
- *     summary: Refresh access token
+ *     summary: Refresh access token using the httpOnly refresh cookie or a refresh token in the body
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [refreshToken]
  *             properties:
  *               refreshToken:
  *                 type: string
@@ -110,12 +97,6 @@ authRoutes.post("/login", validate(loginSchema), asyncHandler(login));
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/RefreshTokenResponse'
- *       401:
- *         description: Invalid or expired refresh token
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/refresh", validate(refreshTokenSchema), asyncHandler(refresh));
 
@@ -124,14 +105,13 @@ authRoutes.post("/refresh", validate(refreshTokenSchema), asyncHandler(refresh))
  * /auth/logout:
  *   post:
  *     tags: [Auth]
- *     summary: Logout user
+ *     summary: Logout user using the httpOnly refresh cookie or a refresh token in the body
  *     requestBody:
- *       required: true
+ *       required: false
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [refreshToken]
  *             properties:
  *               refreshToken:
  *                 type: string
@@ -143,12 +123,6 @@ authRoutes.post("/refresh", validate(refreshTokenSchema), asyncHandler(refresh))
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/SuccessMessageResponse'
- *       401:
- *         description: Invalid or expired refresh token
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/logout", validate(logoutSchema), asyncHandler(logout));
 
@@ -160,6 +134,7 @@ authRoutes.post("/logout", validate(logoutSchema), asyncHandler(logout));
  *     summary: Get current user
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: Current user fetched
@@ -172,37 +147,32 @@ authRoutes.get("/me", requireAuth, asyncHandler(me));
 
 /**
  * @openapi
- * /auth/change-password:
- *   post:
+ * /auth/update-password:
+ *   patch:
  *     tags: [Auth]
- *     summary: Change current user password
+ *     summary: Update the current logged-in user's password
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/ChangePasswordRequest'
+ *             $ref: '#/components/schemas/UpdatePasswordRequest'
  *     responses:
  *       200:
- *         description: Password changed successfully
+ *         description: Password updated successfully
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/SuccessMessageResponse'
- *       400:
- *         description: Invalid password change request
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
-authRoutes.post(
-    "/change-password",
+authRoutes.patch(
+    "/update-password",
     requireAuth,
-    validate(changePasswordSchema),
-    asyncHandler(changeUserPassword)
+    validate(updatePasswordSchema),
+    asyncHandler(updateUserPassword)
 );
 
 /**
@@ -229,12 +199,6 @@ authRoutes.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/SuccessMessageResponse'
- *       400:
- *         description: Invalid or expired token
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post("/verify-email", validate(verifyEmailSchema), asyncHandler(verifyEmail));
 
@@ -280,15 +244,7 @@ authRoutes.post(
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [token, password]
- *             properties:
- *               token:
- *                 type: string
- *                 example: password_reset_token
- *               password:
- *                 type: string
- *                 example: newpassword123
+ *             $ref: '#/components/schemas/ResetPasswordRequest'
  *     responses:
  *       200:
  *         description: Password reset successfully
@@ -296,12 +252,6 @@ authRoutes.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/SuccessMessageResponse'
- *       400:
- *         description: Invalid or expired token
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 authRoutes.post(
     "/reset-password",
