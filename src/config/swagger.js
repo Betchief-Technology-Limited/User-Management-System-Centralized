@@ -10,7 +10,12 @@ const options = {
     },
     servers: [
       {
+        url: "http://localhost:4008/api/v1",
+        description: "Local development",
+      },
+      {
         url: "https://user-management-system-centralized.onrender.com/api/v1",
+        description: "Production",
       },
     ],
     components: {
