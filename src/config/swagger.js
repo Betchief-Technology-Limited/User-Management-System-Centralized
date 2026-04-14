@@ -10,7 +10,7 @@ const options = {
     },
     servers: [
       {
-        url: "https://user-management-system-centralized.onrender.com",
+        url: "https://user-management-system-centralized.onrender.com/api/v1",
       },
     ],
     components: {
