@@ -30,6 +30,11 @@ const options = {
           in: "cookie",
           name: "accessToken"
         },
+        refreshCookieAuth: {
+          type: "apiKey",
+          in: "cookie",
+          name: "refreshToken"
+        },
       },
       schemas: {
         ErrorResponse: {

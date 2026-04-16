@@ -16,8 +16,6 @@ import {
 import {
     forgotPasswordSchema,
     loginSchema,
-    logoutSchema,
-    refreshTokenSchema,
     registerSchema,
     resetPasswordSchema,
     updatePasswordSchema,
@@ -79,17 +77,9 @@ authRoutes.post("/login", validate(loginSchema), asyncHandler(login));
  * /auth/refresh:
  *   post:
  *     tags: [Auth]
- *     summary: Refresh access token using the httpOnly refresh cookie or a refresh token in the body
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               refreshToken:
- *                 type: string
- *                 example: your_refresh_token
+ *     summary: Refresh access token using the httpOnly refresh token cookie
+ *     security:
+ *       - refreshCookieAuth: []
  *     responses:
  *       200:
  *         description: Token refreshed successfully
@@ -98,24 +88,16 @@ authRoutes.post("/login", validate(loginSchema), asyncHandler(login));
  *             schema:
  *               $ref: '#/components/schemas/RefreshTokenResponse'
  */
-authRoutes.post("/refresh", validate(refreshTokenSchema), asyncHandler(refresh));
+authRoutes.post("/refresh", asyncHandler(refresh));
 
 /**
  * @openapi
  * /auth/logout:
  *   post:
  *     tags: [Auth]
- *     summary: Logout user using the httpOnly refresh cookie or a refresh token in the body
- *     requestBody:
- *       required: false
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               refreshToken:
- *                 type: string
- *                 example: your_refresh_token
+ *     summary: Logout user using the httpOnly refresh token cookie
+ *     security:
+ *       - refreshCookieAuth: []
  *     responses:
  *       200:
  *         description: Logout successful
@@ -124,7 +106,7 @@ authRoutes.post("/refresh", validate(refreshTokenSchema), asyncHandler(refresh))
  *             schema:
  *               $ref: '#/components/schemas/SuccessMessageResponse'
  */
-authRoutes.post("/logout", validate(logoutSchema), asyncHandler(logout));
+authRoutes.post("/logout", asyncHandler(logout));
 
 /**
  * @openapi
