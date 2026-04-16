@@ -5,6 +5,10 @@ const objectIdSchema = z
   .string()
   .regex(/^[0-9a-fA-F]{24}$/, "Invalid identifier");
 
+export const userIdParamSchema = z.object({
+  id: objectIdSchema
+});
+
 export const updateUserSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),

@@ -9,7 +9,7 @@ import {
     getUsersHandler,
     updateUserHandler,
 } from "./user.controller.js";
-import { updateUserSchema } from "./user.validation.js";
+import { updateUserSchema, userIdParamSchema } from "./user.validation.js";
 
 const userRoutes = express.Router();
 
@@ -64,6 +64,7 @@ userRoutes.get(
 userRoutes.get(
     "/users/:id",
     requirePermission("manage_users"),
+    validate(userIdParamSchema, "params"),
     asyncHandler(getUserHandler)
 );
 
@@ -80,6 +81,8 @@ userRoutes.get(
  *       - in: path
  *         name: id
  *         required: true
+ *         schema:
+ *           type: string
  *     requestBody:
  *       required: true
  *       content:
@@ -97,6 +100,7 @@ userRoutes.get(
 userRoutes.patch(
     "/users/:id",
     requirePermission("manage_users"),
+    validate(userIdParamSchema, "params"),
     validate(updateUserSchema),
     asyncHandler(updateUserHandler)
 );
@@ -110,6 +114,12 @@ userRoutes.patch(
  *     security:
  *       - bearerAuth: []
  *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
  *     responses:
  *       200:
  *         description: User deleted
@@ -121,6 +131,7 @@ userRoutes.patch(
 userRoutes.delete(
     "/users/:id",
     requirePermission("manage_users"),
+    validate(userIdParamSchema, "params"),
     asyncHandler(deleteUserHandler)
 );
 
