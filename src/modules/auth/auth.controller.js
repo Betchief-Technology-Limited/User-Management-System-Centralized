@@ -45,7 +45,7 @@ export async function login(req, res) {
 }
 
 export async function refresh(req, res) {
-    const refreshToken = req.cookies?.refreshToken || req.validatedBody?.refreshToken;
+    const refreshToken = req.cookies?.refreshToken;
     const tokens = await refreshUserToken({ refreshToken });
 
     setAuthCookies(res, {
@@ -60,7 +60,7 @@ export async function refresh(req, res) {
 }
 
 export async function logout(req, res) {
-    const refreshToken = req.cookies?.refreshToken || req.validatedBody?.refreshToken;
+    const refreshToken = req.cookies?.refreshToken;
 
     await logoutUser({ refreshToken });
     clearAuthCookies(res);
