@@ -5,9 +5,15 @@ import { requireAuth } from "../middleware/auth.middleware.js";
 import { requirePermission } from "./rbac.middleware.js";
 import {
     createRoleHandler,
-    getRolesHandler
+    getRoleHandler,
+    getRolesHandler,
+    updateRoleHandler
 } from "./role.controller.js";
-import { createRoleSchema } from "./role.validation.js";
+import {
+    createRoleSchema,
+    roleIdParamSchema,
+    updateRoleSchema
+} from "./role.validation.js";
 
 const roleRoutes = express.Router();
 
@@ -70,6 +76,85 @@ roleRoutes.get(
     "/roles/all",
     requirePermission("manage_roles"),
     asyncHandler(getRolesHandler)
+);
+
+/**
+ * @openapi
+ * /roles/{id}:
+ *   get:
+ *     tags: [Roles]
+ *     summary: Get a single role
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Role fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RoleResponse'
+ *       404:
+ *         description: Role not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+roleRoutes.get(
+    "/roles/:id",
+    requirePermission("manage_roles"),
+    validate(roleIdParamSchema, "params"),
+    asyncHandler(getRoleHandler)
+);
+
+/**
+ * @openapi
+ * /roles/{id}:
+ *   patch:
+ *     tags: [Roles]
+ *     summary: Update a role
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateRoleRequest'
+ *     responses:
+ *       200:
+ *         description: Role updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/RoleResponse'
+ *       404:
+ *         description: Role not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+roleRoutes.patch(
+    "/roles/:id",
+    requirePermission("manage_roles"),
+    validate(roleIdParamSchema, "params"),
+    validate(updateRoleSchema),
+    asyncHandler(updateRoleHandler)
 );
 
 export default roleRoutes;
