@@ -98,6 +98,82 @@ export async function getRoles() {
     }));
 }
 
+export async function getRoleById(roleId) {
+    const role = await Role.findById(roleId).lean();
+
+    if (!role) {
+        throw new AppError("Role not found", 404);
+    }
+
+    return {
+        ...role,
+        permissions: normalizePermissionList(role.permissions || [])
+    };
+}
+
+export async function updateRole(roleId, data, actedBy = null) {
+    const role = await Role.findById(roleId);
+
+    if (!role) {
+        throw new AppError("Role not found", 404);
+    }
+
+    if (data.name !== undefined) {
+        const normalizedName = data.name.trim();
+        const existingRole = await Role.findOne({
+            name: normalizedName,
+            _id: { $ne: roleId }
+        }).lean();
+
+        if (existingRole) {
+            throw new AppError("Role name already exists", 409);
+        }
+        role.name = normalizedName;
+    }
+    if (data.description !== undefined) {
+        role.description = data.description;
+    }
+    if (data.permissions !== undefined) {
+        role.permissions = normalizePermissionList(data.permissions);
+    }
+    await role.save();
+
+    if (data.permissions !== undefined) {
+        const allowedPermissionSet = new Set(role.permissions || []);
+        const users = await User.find({ roleId: role._id }).select("deniedPermissions")
+        for (const user of users) {
+            const nextDeniedPermissions = normalizePermissionList(
+                user.deniedPermissions || []
+            ).filter((permission) => allowedPermissionSet.has(permission));
+
+            if(
+                nextDeniedPermissions.length !== (user.deniedPermissions || []).length
+            ){
+                user.deniedPermissions = nextDeniedPermissions;
+                await user.save();
+            }
+
+        }
+    }
+
+    await recordAuditLog({
+        userId: actedBy,
+        action: AUDIT_ACTION.ROLE_UPDATED,
+        entity: "Role",
+        entityId: role._id,
+        metadata: {
+            updatedFields: Object.keys(data),
+            ...(data.permissions !== undefined 
+                ? { permissions: role.permissions } 
+                : {})
+        }
+    });
+
+    return role;
+
+}
+
+
 export async function assignRoleToUser({ userId, roleId, actedBy = null }) {
     const [user, role] = await Promise.all([
         User.findById(userId),

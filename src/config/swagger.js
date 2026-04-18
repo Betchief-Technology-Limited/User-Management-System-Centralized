@@ -219,6 +219,30 @@ const options = {
           },
         },
 
+        UpdateRoleRequest: {
+          type: "object",
+          properties: {
+            name: {
+              type: "string",
+              example: "Financial Officer",
+            },
+            description: {
+              type: "string",
+              example: "Updated account operations role",
+            },
+            permissions: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+              example: [
+                "wallet.read",
+                "wallet.update"
+              ],
+            },
+          },
+        },
+
         CreateInvitationRequest: {
           type: "object",
           required: ["email", "firstName", "lastName", "roleId"],
