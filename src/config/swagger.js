@@ -254,6 +254,11 @@ const options = {
                         description: {
                             type: "string",
                             example: "Customer wallet funding is failing on the mobile app."
+                        },
+                        priority: {
+                            type: "string",
+                            enum: ["LOW", "MEDIUM", "HIGH"],
+                            example: "MEDIUM"
                         }
                     }
                 },
@@ -288,17 +293,6 @@ const options = {
                         content: {
                             type: "string",
                             example: "We are currently investigating this ticket."
-                        }
-                    }
-                },
-
-                TicketTagRequest: {
-                    type: "object",
-                    required: ["name"],
-                    properties: {
-                        name: {
-                            type: "string",
-                            example: "urgent"
                         }
                     }
                 },
@@ -436,24 +430,6 @@ const options = {
                     }
                 },
 
-                TicketTag: {
-                    type: "object",
-                    properties: {
-                        id: {
-                            type: "string",
-                            example: "1f0bb464-3d9d-4e10-8b45-466efbe32b52"
-                        },
-                        name: {
-                            type: "string",
-                            example: "urgent"
-                        },
-                        createdAt: {
-                            type: "string",
-                            format: "date-time"
-                        }
-                    }
-                },
-
                 TicketMessage: {
                     type: "object",
                     properties: {
@@ -508,6 +484,11 @@ const options = {
                             enum: ["OPEN", "PENDING", "RESOLVED", "CLOSED"],
                             example: "OPEN"
                         },
+                        priority: {
+                            type: "string",
+                            enum: ["LOW", "MEDIUM", "HIGH"],
+                            example: "MEDIUM"
+                        },
                         assignedTo: {
                             $ref: "#/components/schemas/TicketUserReference"
                         },
@@ -516,12 +497,6 @@ const options = {
                         },
                         updatedBy: {
                             $ref: "#/components/schemas/TicketUserReference"
-                        },
-                        tags: {
-                            type: "array",
-                            items: {
-                                $ref: "#/components/schemas/TicketTag"
-                            }
                         },
                         messages: {
                             type: "array",
@@ -961,31 +936,6 @@ const options = {
                         },
                         meta: {
                             $ref: "#/components/schemas/PaginationMeta"
-                        }
-                    }
-                },
-
-                TicketTagOperationResponse: {
-                    type: "object",
-                    properties: {
-                        success: {
-                            type: "boolean",
-                            example: true
-                        },
-                        message: {
-                            type: "string",
-                            example: "Tag added successfully"
-                        },
-                        data: {
-                            type: "object",
-                            properties: {
-                                ticket: {
-                                    $ref: "#/components/schemas/Ticket"
-                                },
-                                tag: {
-                                    $ref: "#/components/schemas/TicketTag"
-                                }
-                            }
                         }
                     }
                 },

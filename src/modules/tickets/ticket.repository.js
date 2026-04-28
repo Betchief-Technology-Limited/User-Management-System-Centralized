@@ -1,23 +1,11 @@
 import prisma from "../../database/prisma/client.js";
 
-const defaultTicketInclude = {
-    tags: {
-        include: {
-            tag: true
-        },
-        orderBy: {
-            createdAt: "asc"
-        }
-    }
-};
-
 function buildTicketInclude({
     includeMessages = false,
     includeStatusHistory = false,
     includeAssignmentHistory = false
-} = {}) {
+    } = {}) {
     return {
-        ...defaultTicketInclude,
         ...(includeMessages
             ? {
                 messages: {
@@ -71,8 +59,7 @@ export async function createTicketWithStatusHistory({ ticketData, statusHistoryD
         });
 
         return tx.ticket.findUnique({
-            where: { id: ticket.id },
-            include: defaultTicketInclude
+            where: { id: ticket.id }
         });
     });
 }
@@ -82,8 +69,7 @@ export async function listTickets({ where, skip, take, orderBy }) {
         where,
         skip,
         take,
-        orderBy,
-        include: defaultTicketInclude
+        orderBy
     });
 }
 
@@ -92,9 +78,11 @@ export async function countTickets(where) {
 }
 
 export async function findTicketByPublicId(ticketId, includeOptions = {}) {
+    const include = buildTicketInclude(includeOptions);
+
     return prisma.ticket.findUnique({
         where: { ticketId },
-        include: buildTicketInclude(includeOptions)
+        ...(Object.keys(include).length > 0 ? { include } : {})
     });
 }
 
@@ -127,8 +115,7 @@ export async function updateTicketStatusWithHistory({
         });
 
         return tx.ticket.findUnique({
-            where: { id: ticketRefId },
-            include: defaultTicketInclude
+            where: { id: ticketRefId }
         });
     });
 }
@@ -168,8 +155,7 @@ export async function updateTicketAssignmentWithHistory({
         });
 
         return tx.ticket.findUnique({
-            where: { id: ticketRefId },
-            include: defaultTicketInclude
+            where: { id: ticketRefId }
         });
     });
 }
@@ -214,49 +200,4 @@ export async function listTicketMessages({
     ]);
 
     return { messages, total };
-}
-
-export async function findTicketTagById(tagId) {
-    return prisma.ticketTag.findUnique({
-        where: { id: tagId }
-    });
-}
-
-export async function findTicketTagByName(name) {
-    return prisma.ticketTag.findUnique({
-        where: { name }
-    });
-}
-
-export async function createTicketTag(name) {
-    return prisma.ticketTag.create({
-        data: { name }
-    });
-}
-
-export async function findTicketTagMapping(ticketRefId, tagId) {
-    return prisma.ticketTagMap.findFirst({
-        where: {
-            ticketId: ticketRefId,
-            tagId
-        }
-    });
-}
-
-export async function addTagToTicket(ticketRefId, tagId) {
-    return prisma.ticketTagMap.create({
-        data: {
-            ticketId: ticketRefId,
-            tagId
-        }
-    });
-}
-
-export async function removeTagFromTicket(ticketRefId, tagId) {
-    return prisma.ticketTagMap.deleteMany({
-        where: {
-            ticketId: ticketRefId,
-            tagId
-        }
-    });
 }

@@ -5,6 +5,12 @@ export const TICKET_STATUS = Object.freeze({
     CLOSED: "CLOSED",
 });
 
+export const TICKET_PRIORITY = Object.freeze({
+    LOW: "LOW",
+    MEDIUM: "MEDIUM",
+    HIGH: "HIGH",
+});
+
 export const MESSAGE_TYPE = Object.freeze({
     MESSAGE: "message",
     INTERNAL_NOTE: "internal_note",
@@ -17,7 +23,6 @@ export const TICKET_PERMISSION = Object.freeze({
     ASSIGN: "ticket.assign",
     MESSAGE: "ticket.message",
     ADD_NOTE: "ticket.add_note",
-    TAG: "ticket.tag",
 });
 
 export const TICKET_PERMISSIONS = TICKET_PERMISSION;

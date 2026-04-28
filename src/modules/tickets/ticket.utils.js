@@ -39,10 +39,6 @@ export function buildUserSnapshot(user) {
     }
 }
 
-export function normalizeTagName(name) {
-    return name.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
 export function getPagination(query = {}) {
     const page = Math.max(
         DEFAULT_TICKET_PAGE,

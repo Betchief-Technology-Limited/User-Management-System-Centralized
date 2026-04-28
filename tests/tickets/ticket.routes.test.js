@@ -83,6 +83,7 @@ describe("ticket routes", () => {
                     title: "Wallet issue",
                     description: "Customer wallet is not updating",
                     status: "OPEN",
+                    priority: "HIGH",
                     assignedTo: null,
                     createdBy: {
                         userId: "admin-id",
@@ -94,7 +95,6 @@ describe("ticket routes", () => {
                         name: "Admin User",
                         email: "admin@example.com"
                     },
-                    tags: [],
                     createdAt: "2026-04-20T12:00:00.000Z",
                     updatedAt: "2026-04-20T12:00:00.000Z"
                 }
@@ -133,6 +133,7 @@ describe("ticket routes", () => {
                         title: "Wallet issue",
                         description: "Customer wallet is not updating",
                         status: "OPEN",
+                        priority: "HIGH",
                         assignedTo: null,
                         createdBy: {
                             userId: "admin-id",
@@ -144,7 +145,6 @@ describe("ticket routes", () => {
                             name: "Admin User",
                             email: "admin@example.com"
                         },
-                        tags: [],
                         createdAt: "2026-04-20T12:00:00.000Z",
                         updatedAt: "2026-04-20T12:00:00.000Z"
                     }

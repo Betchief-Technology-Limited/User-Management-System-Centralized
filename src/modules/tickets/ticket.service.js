@@ -1,6 +1,6 @@
 import { AppError } from "../../shared/errors/AppError.js";
 import { createTicketWithStatusHistory, countTickets, findTicketByPublicId, listTickets, ticketIdExists } from "./ticket.repository.js";
-import { TICKET_STATUS } from "./ticket.constants.js";
+import { TICKET_PRIORITY, TICKET_STATUS } from "./ticket.constants.js";
 import { buildPaginationMeta, getPagination } from "./ticket.utils.js";
 import { generateUniqueTicketId } from "./helpers/ticket-id-generator.js";
 import { buildTicketFilters } from "./helpers/build-ticket-filters.js";
@@ -17,6 +17,7 @@ export async function createTicket(data, actor) {
             title: data.title.trim(),
             description: data.description.trim(),
             status: TICKET_STATUS.OPEN,
+            priority: data.priority || TICKET_PRIORITY.MEDIUM,
             createdByUserId: actor.userId,
             createdByName: actor.name,
             createdByEmail: actor.email,

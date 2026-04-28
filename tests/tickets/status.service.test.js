@@ -66,8 +66,7 @@ describe("updateTicketStatus", () => {
         updateTicketStatusWithHistory.mockResolvedValue({
             id: "ticket-db-id",
             ticketId: "TKT-20260420-ABC123",
-            status: TICKET_STATUS.PENDING,
-            tags: []
+            status: TICKET_STATUS.PENDING
         });
 
         const result = await updateTicketStatus(

@@ -28,14 +28,6 @@ import {
     createMessageSchema,
     listMessagesQuerySchema
 } from "./messages/message.validation.js";
-import {
-    addTicketTagHandler,
-    removeTicketTagHandler
-} from "./tags/tag.controller.js";
-import {
-    createTicketTagSchema,
-    removeTicketTagParamSchema
-} from "./tags/tag.validation.js";
 
 const ticketRoutes = express.Router();
 
@@ -86,6 +78,11 @@ ticketRoutes.post(
  *         schema:
  *           type: string
  *           enum: [OPEN, PENDING, RESOLVED, CLOSED]
+ *       - in: query
+ *         name: priority
+ *         schema:
+ *           type: string
+ *           enum: [LOW, MEDIUM, HIGH]
  *       - in: query
  *         name: assignedToUserId
  *         schema:
@@ -359,78 +356,6 @@ ticketRoutes.get(
     validate(ticketIdParamSchema, "params"),
     validate(listMessagesQuerySchema, "query"),
     asyncHandler(listInternalNotesHandler)
-);
-
-/**
- * @openapi
- * /tickets/{ticketId}/tags:
- *   post:
- *     tags: [Tickets]
- *     summary: Add a tag to a ticket
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: ticketId
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/TicketTagRequest'
- *     responses:
- *       201:
- *         description: Tag added successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/TicketTagOperationResponse'
- */
-ticketRoutes.post(
-    "/tickets/:ticketId/tags",
-    requirePermission(TICKET_PERMISSIONS.TAG),
-    validate(ticketIdParamSchema, "params"),
-    validate(createTicketTagSchema),
-    asyncHandler(addTicketTagHandler)
-);
-
-/**
- * @openapi
- * /tickets/{ticketId}/tags/{tagId}:
- *   delete:
- *     tags: [Tickets]
- *     summary: Remove a tag from a ticket
- *     security:
- *       - bearerAuth: []
- *       - cookieAuth: []
- *     parameters:
- *       - in: path
- *         name: ticketId
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: tagId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Tag removed successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/TicketTagOperationResponse'
- */
-ticketRoutes.delete(
-    "/tickets/:ticketId/tags/:tagId",
-    requirePermission(TICKET_PERMISSIONS.TAG),
-    validate(removeTicketTagParamSchema, "params"),
-    asyncHandler(removeTicketTagHandler)
 );
 
 export default ticketRoutes;

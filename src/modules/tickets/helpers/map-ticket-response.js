@@ -10,16 +10,6 @@ function mapUserReference(userId, name, email) {
     };
 }
 
-export function mapTagResponse(tagMap) {
-    const tag = tagMap.tag || tagMap;
-
-    return {
-        id: tag.id,
-        name: tag.name,
-        createdAt: tagMap.createdAt || tag.createdAt
-    };
-}
-
 export function mapTicketResponse(ticket) {
     return {
         id: ticket.id,
@@ -27,6 +17,7 @@ export function mapTicketResponse(ticket) {
         title: ticket.title,
         description: ticket.description,
         status: ticket.status,
+        priority: ticket.priority,
         assignedTo: mapUserReference(
             ticket.assignedToUserId,
             ticket.assignedToName,
@@ -42,7 +33,6 @@ export function mapTicketResponse(ticket) {
             ticket.updatedByName,
             ticket.updatedByEmail
         ),
-        tags: (ticket.tags || []).map(mapTagResponse),
         createdAt: ticket.createdAt,
         updatedAt: ticket.updatedAt
     };

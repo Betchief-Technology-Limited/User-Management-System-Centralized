@@ -12,7 +12,7 @@ import {
     USER_STATUS
 } from "../../shared/constants/system.js";
 import { recordAuditLog } from "../../shared/utils/auditLogger.js";
-import sendVerificationEmail from "./auth.email.js";
+import sendVerificationEmail, { sendPasswordResetEmail } from "./auth.email.js";
 import {
     comparePassword,
     generateAccessToken,
@@ -356,7 +356,8 @@ export async function verifyEmailToken({ token }) {
 }
 
 export async function requestPasswordReset({ email }) {
-    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
         return env.NODE_ENV === "production" ? {} : { resetToken: null };
@@ -369,6 +370,12 @@ export async function requestPasswordReset({ email }) {
         userId: user._id,
         tokenHash,
         expiresAt: new Date(Date.now() + ONE_HOUR_IN_MS),
+    });
+
+    await sendPasswordResetEmail({
+        to: user.email,
+        firstName: user.firstName || user.email,
+        token: rawResetToken
     });
 
     return env.NODE_ENV === "production"

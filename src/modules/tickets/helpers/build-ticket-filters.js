@@ -1,8 +1,12 @@
-export function buildTicketFilters({ status, assignedToUserId }) {
+export function buildTicketFilters({ status, priority, assignedToUserId }) {
     const where = {};
 
     if (status) {
         where.status = status;
+    }
+
+    if (priority) {
+        where.priority = priority;
     }
 
     if (assignedToUserId) {

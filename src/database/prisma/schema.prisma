@@ -4,80 +4,50 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-enum TicketStatus {
-  OPEN
-  PENDING
-  RESOLVED
-  CLOSED
-}
-
-enum MessageType {
-  message
-  internal_note
+  url      = env("DATABASE_URL_PRODUCTION")
 }
 
 model Ticket {
-  id                 String                    @id @default(uuid()) @db.Uuid
-  ticketId           String                    @unique
-  title              String
-  description        String                    @db.Text
-  status             TicketStatus              @default(OPEN)
-  assignedToUserId   String?
-  assignedToName     String?
-  assignedToEmail    String?
-  createdByUserId    String
-  createdByName      String
-  createdByEmail     String
-  updatedByUserId    String?
-  updatedByName      String?
-  updatedByEmail     String?
-  createdAt          DateTime                  @default(now())
-  updatedAt          DateTime                  @updatedAt
-  messages           TicketMessage[]
-  tags               TicketTagMap[]
-  assignmentHistory  TicketAssignmentHistory[]
-  statusHistory      TicketStatusHistory[]
+  id                String                    @id @default(uuid()) @db.Uuid
+  ticketId          String                    @unique
+  title             String
+  description       String
+  status            TicketStatus              @default(OPEN)
+  assignedToUserId  String?
+  assignedToName    String?
+  assignedToEmail   String?
+  createdByUserId   String
+  createdByName     String
+  createdByEmail    String
+  updatedByUserId   String?
+  updatedByName     String?
+  updatedByEmail    String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  priority          TicketPriority            @default(MEDIUM)
+  assignmentHistory TicketAssignmentHistory[]
+  messages          TicketMessage[]
+  statusHistory     TicketStatusHistory[]
 
   @@index([status])
+  @@index([priority])
   @@index([assignedToUserId])
   @@index([createdAt])
 }
 
 model TicketMessage {
-  id          String      @id @default(uuid()) @db.Uuid
-  ticketRefId String      @db.Uuid
+  id           String      @id @default(uuid()) @db.Uuid
+  ticketRefId  String      @db.Uuid
   senderUserId String
-  senderName  String
-  senderEmail String
-  messageType MessageType @default(message)
-  content     String      @db.Text
-  createdAt   DateTime    @default(now())
-  ticket      Ticket      @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
+  senderName   String
+  senderEmail  String
+  messageType  MessageType @default(message)
+  content      String
+  createdAt    DateTime    @default(now())
+  ticket       Ticket      @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
 
   @@index([ticketRefId, createdAt])
   @@index([messageType])
-}
-
-model TicketTag {
-  id        String       @id @default(uuid()) @db.Uuid
-  name      String       @unique
-  createdAt DateTime     @default(now())
-  tickets   TicketTagMap[]
-}
-
-model TicketTagMap {
-  id        String    @id @default(uuid()) @db.Uuid
-  ticketId  String    @db.Uuid
-  tagId     String    @db.Uuid
-  createdAt DateTime  @default(now())
-  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  tag       TicketTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([ticketId, tagId])
-  @@index([tagId])
 }
 
 model TicketAssignmentHistory {
@@ -99,15 +69,34 @@ model TicketAssignmentHistory {
 }
 
 model TicketStatusHistory {
-  id              String       @id @default(uuid()) @db.Uuid
-  ticketRefId     String       @db.Uuid
+  id              String        @id @default(uuid()) @db.Uuid
+  ticketRefId     String        @db.Uuid
   oldStatus       TicketStatus?
   newStatus       TicketStatus
   changedByUserId String
   changedByName   String
   changedByEmail  String
-  createdAt       DateTime     @default(now())
-  ticket          Ticket       @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+  ticket          Ticket        @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
 
   @@index([ticketRefId, createdAt])
 }
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum MessageType {
+  message
+  internal_note
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+

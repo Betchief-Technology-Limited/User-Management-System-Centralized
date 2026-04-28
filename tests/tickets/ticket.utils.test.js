@@ -2,8 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
     buildActorSnapshotFromRequest,
     buildPaginationMeta,
-    getPagination,
-    normalizeTagName
+    getPagination
 } from "../../src/modules/tickets/ticket.utils.js";
 import { AppError } from "../../src/shared/errors/AppError.js";
 
@@ -28,12 +27,6 @@ describe("ticket utils", () => {
 
     it("throws when the authenticated user context is missing", () => {
         expect(() => buildActorSnapshotFromRequest({})).toThrow(AppError);
-    });
-
-    it("normalizes tag names consistently", () => {
-        expect(normalizeTagName("  Priority   Customer  ")).toBe(
-            "priority customer"
-        );
     });
 
     it("applies default and bounded pagination values", () => {
