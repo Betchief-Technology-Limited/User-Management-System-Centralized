@@ -5,7 +5,11 @@ let redisClient = null;
 
 export async function connectRedis() {
     if (!env.REDIS_URL) {
-        throw new Error("REDIS_URL is not set")
+        throw new Error("REDIS_URL is not set");
+    }
+
+    if (redisClient?.isOpen) {
+        return redisClient;
     }
 
     const client = createClient({
@@ -17,16 +21,16 @@ export async function connectRedis() {
     });
 
     client.on("connect", () => {
-        console.log("🔄 Connecting to Redis...")
+        console.log("Connecting to Redis...");
     });
 
     client.on("ready", () => {
-        console.log("✅ Redis connected")
+        console.log("Redis connected");
     });
 
     client.on("end", () => {
-        console.warn("⚠️ Redis connection closed")
-    })
+        console.warn("Redis connection closed");
+    });
 
     await client.connect();
 
@@ -35,9 +39,17 @@ export async function connectRedis() {
     return redisClient;
 }
 
+export async function disconnectRedis() {
+    if (redisClient?.isOpen) {
+        await redisClient.quit();
+    }
+
+    redisClient = null;
+}
+
 export function getRedisClient() {
     if (!redisClient) {
-        throw new Error("Redis client has not been initialized")
+        throw new Error("Redis client has not been initialized");
     }
 
     return redisClient;

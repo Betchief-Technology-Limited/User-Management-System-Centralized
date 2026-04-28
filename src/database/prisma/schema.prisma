@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_PRODUCTION")
+}
+
+model Ticket {
+  id                String                    @id @default(uuid()) @db.Uuid
+  ticketId          String                    @unique
+  title             String
+  description       String
+  status            TicketStatus              @default(OPEN)
+  assignedToUserId  String?
+  assignedToName    String?
+  assignedToEmail   String?
+  createdByUserId   String
+  createdByName     String
+  createdByEmail    String
+  updatedByUserId   String?
+  updatedByName     String?
+  updatedByEmail    String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  priority          TicketPriority            @default(MEDIUM)
+  assignmentHistory TicketAssignmentHistory[]
+  messages          TicketMessage[]
+  statusHistory     TicketStatusHistory[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([assignedToUserId])
+  @@index([createdAt])
+}
+
+model TicketMessage {
+  id           String      @id @default(uuid()) @db.Uuid
+  ticketRefId  String      @db.Uuid
+  senderUserId String
+  senderName   String
+  senderEmail  String
+  messageType  MessageType @default(message)
+  content      String
+  createdAt    DateTime    @default(now())
+  ticket       Ticket      @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
+
+  @@index([ticketRefId, createdAt])
+  @@index([messageType])
+}
+
+model TicketAssignmentHistory {
+  id                       String   @id @default(uuid()) @db.Uuid
+  ticketRefId              String   @db.Uuid
+  previousAssignedToUserId String?
+  previousAssignedToName   String?
+  previousAssignedToEmail  String?
+  newAssignedToUserId      String
+  newAssignedToName        String
+  newAssignedToEmail       String
+  assignedByUserId         String
+  assignedByName           String
+  assignedByEmail          String
+  createdAt                DateTime @default(now())
+  ticket                   Ticket   @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
+
+  @@index([ticketRefId, createdAt])
+}
+
+model TicketStatusHistory {
+  id              String        @id @default(uuid()) @db.Uuid
+  ticketRefId     String        @db.Uuid
+  oldStatus       TicketStatus?
+  newStatus       TicketStatus
+  changedByUserId String
+  changedByName   String
+  changedByEmail  String
+  createdAt       DateTime      @default(now())
+  ticket          Ticket        @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
+
+  @@index([ticketRefId, createdAt])
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  CLOSED
+}
+
+enum MessageType {
+  message
+  internal_note
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+

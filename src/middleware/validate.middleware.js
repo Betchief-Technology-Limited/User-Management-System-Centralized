@@ -13,7 +13,11 @@ export const validate = (schema, target = "body") => (req, res, next) => {
         return next(
             new AppError(
                 result.error.issues.map((issue) => issue.message).join(", "),
-                400
+                400,
+                result.error.issues.map((issue)=>({
+                    path: issue.path.join("."),
+                    message: issue.message
+                }))
             )
         );
     }

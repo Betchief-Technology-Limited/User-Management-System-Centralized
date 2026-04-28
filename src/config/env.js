@@ -1,4 +1,4 @@
-import dotenv from "dotenv"
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -15,5 +15,4 @@ export const env = {
     EMAIL_FROM: process.env.EMAIL_FROM,
     REDIS_URL: process.env.REDIS_URL,
     REDIS_REQUIRED: process.env.REDIS_REQUIRED === "true",
-    NODE_ENV: process.env.NODE_ENV || "development",
-}
+};

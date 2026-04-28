@@ -9,6 +9,7 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/user.routes.js";
 import roleRoutes from "./modules/roles/role.routes.js";
 import invitationRoutes from "./modules/invitations/invitation.routes.js";
+import ticketRoutes from "./modules/tickets/ticket.routes.js";
 
 import errorHandler from "./middleware/error.middleware.js";
 import rateLimiter from "./middleware/rateLimiter.middleware.js";
@@ -55,7 +56,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1", userRoutes);
 app.use("/api/v1", roleRoutes);
 app.use("/api/v1", invitationRoutes);
-
+app.use("/api/v1", ticketRoutes);
 app.use(
     "/api-docs",
     swaggerUi.serve,
