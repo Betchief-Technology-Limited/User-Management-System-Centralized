@@ -245,7 +245,21 @@ const options = {
 
                 CreateTicketRequest: {
                     type: "object",
+                    description: "Create a ticket with one initial channel event. Provide only the nested object that matches the selected channel.",
                     required: ["title", "description"],
+                    example: {
+                        title: "Dashboard access issue",
+                        description: "Customer cannot access the dashboard after resetting password.",
+                        priority: "HIGH",
+                        assignedToUserId: "680ab1234c56d7890ef67890",
+                        customerName: "Sarah Chen",
+                        customerEmail: "sarah.chen@example.com",
+                        channel: "CHAT",
+                        chat: {
+                            message: "Customer cannot access the dashboard after resetting password.",
+                            senderType: "CUSTOMER"
+                        }
+                    },
                     properties: {
                         title: {
                             type: "string",
@@ -259,6 +273,167 @@ const options = {
                             type: "string",
                             enum: ["LOW", "MEDIUM", "HIGH"],
                             example: "MEDIUM"
+                        },
+                        assignedToUserId: {
+                            type: "string",
+                            example: "680ab1234c56d7890ef67890"
+                        },
+                        customerName: {
+                            type: "string",
+                            example: "Sarah Chen"
+                        },
+                        customerEmail: {
+                            type: "string",
+                            example: "sarah.chen@example.com"
+                        },
+                        customerPhone: {
+                            type: "string",
+                            example: "+2348012345678"
+                        },
+                        channel: {
+                            type: "string",
+                            enum: ["CHAT", "EMAIL", "PHONE"],
+                            example: "CHAT"
+                        },
+                        chat: {
+                            type: "object",
+                            properties: {
+                                message: {
+                                    type: "string",
+                                    example: "Customer cannot access the dashboard after resetting password."
+                                },
+                                senderType: {
+                                    type: "string",
+                                    enum: ["AGENT", "CUSTOMER"],
+                                    example: "CUSTOMER"
+                                }
+                            }
+                        },
+                        email: {
+                            type: "object",
+                            properties: {
+                                subject: {
+                                    type: "string",
+                                    example: "Unable to access dashboard"
+                                },
+                                body: {
+                                    type: "string",
+                                    example: "Customer reports that dashboard access fails after password reset."
+                                },
+                                fromEmail: {
+                                    type: "string",
+                                    example: "customer@example.com"
+                                },
+                                toEmail: {
+                                    type: "string",
+                                    example: "support@example.com"
+                                }
+                            }
+                        },
+                        call: {
+                            type: "object",
+                            properties: {
+                                duration: {
+                                    type: "integer",
+                                    example: 180
+                                },
+                                recordingUrl: {
+                                    type: "string",
+                                    example: "https://example.com/call-recordings/123"
+                                },
+                                direction: {
+                                    type: "string",
+                                    enum: ["INBOUND", "OUTBOUND"],
+                                    example: "INBOUND"
+                                }
+                            }
+                        }
+                    }
+                },
+
+                CreateTicketEventRequest: {
+                    type: "object",
+                    description: "Append one new event to an existing ticket thread. Provide only the nested object that matches the selected channel.",
+                    required: ["channel"],
+                    example: {
+                        channel: "EMAIL",
+                        email: {
+                            subject: "Reset link reissued",
+                            body: "We have re-issued the reset link. Please try again.",
+                            fromEmail: "support@example.com",
+                            toEmail: "sarah.chen@example.com"
+                        }
+                    },
+                    properties: {
+                        customerName: {
+                            type: "string",
+                            example: "Sarah Chen"
+                        },
+                        customerEmail: {
+                            type: "string",
+                            example: "sarah.chen@example.com"
+                        },
+                        customerPhone: {
+                            type: "string",
+                            example: "+2348012345678"
+                        },
+                        channel: {
+                            type: "string",
+                            enum: ["CHAT", "EMAIL", "PHONE"],
+                            example: "EMAIL"
+                        },
+                        chat: {
+                            type: "object",
+                            properties: {
+                                message: {
+                                    type: "string",
+                                    example: "Please clear cache and try again."
+                                },
+                                senderType: {
+                                    type: "string",
+                                    enum: ["AGENT", "CUSTOMER"],
+                                    example: "AGENT"
+                                }
+                            }
+                        },
+                        email: {
+                            type: "object",
+                            properties: {
+                                subject: {
+                                    type: "string",
+                                    example: "Reset link reissued"
+                                },
+                                body: {
+                                    type: "string",
+                                    example: "We have re-issued the reset link. Please try again."
+                                },
+                                fromEmail: {
+                                    type: "string",
+                                    example: "support@example.com"
+                                },
+                                toEmail: {
+                                    type: "string",
+                                    example: "sarah.chen@example.com"
+                                }
+                            }
+                        },
+                        call: {
+                            type: "object",
+                            properties: {
+                                duration: {
+                                    type: "integer",
+                                    example: 120
+                                },
+                                recordingUrl: {
+                                    type: "string",
+                                    example: "https://example.com/call-recordings/123"
+                                },
+                                direction: {
+                                    type: "string",
+                                    enum: ["INBOUND", "OUTBOUND"],
+                                    example: "OUTBOUND"
+                                }
+                            }
                         }
                     }
                 },
@@ -430,6 +605,29 @@ const options = {
                     }
                 },
 
+                TicketCustomerReference: {
+                    type: "object",
+                    nullable: true,
+                    properties: {
+                        customerId: {
+                            type: "string",
+                            example: "sarah.chen@example.com"
+                        },
+                        name: {
+                            type: "string",
+                            example: "Sarah Chen"
+                        },
+                        email: {
+                            type: "string",
+                            example: "sarah.chen@example.com"
+                        },
+                        phone: {
+                            type: "string",
+                            example: "+2348012345678"
+                        }
+                    }
+                },
+
                 TicketMessage: {
                     type: "object",
                     properties: {
@@ -456,6 +654,116 @@ const options = {
                         createdAt: {
                             type: "string",
                             format: "date-time"
+                        }
+                    }
+                },
+
+                TicketCallLog: {
+                    type: "object",
+                    properties: {
+                        id: {
+                            type: "string",
+                            example: "6d4e1a3a-9b23-4b1e-9fd4-11f462c403c2"
+                        },
+                        eventType: {
+                            type: "string",
+                            enum: ["CALL_INITIATED", "CALL_RECEIVED", "CALL_PICKED", "CALL_HANGUP"],
+                            example: "CALL_PICKED"
+                        },
+                        actor: {
+                            type: "string",
+                            enum: ["AGENT", "CUSTOMER", "SYSTEM"],
+                            example: "AGENT"
+                        },
+                        direction: {
+                            type: "string",
+                            enum: ["INBOUND", "OUTBOUND"],
+                            nullable: true,
+                            example: "INBOUND"
+                        },
+                        timestamp: {
+                            type: "string",
+                            format: "date-time"
+                        }
+                    }
+                },
+
+                TicketThreadActor: {
+                    type: "object",
+                    additionalProperties: true,
+                    example: {
+                        type: "CUSTOMER",
+                        customerId: "sarah.chen@example.com",
+                        name: "Sarah Chen"
+                    }
+                },
+
+                TicketThreadItem: {
+                    type: "object",
+                    properties: {
+                        id: {
+                            type: "string",
+                            example: "e69eb6d6-5c89-4ee4-b388-c0e92816c1f6"
+                        },
+                        type: {
+                            type: "string",
+                            enum: ["EMAIL", "CHAT", "CALL", "LOG"],
+                            example: "CHAT"
+                        },
+                        channel: {
+                            type: "string",
+                            enum: ["EMAIL", "CHAT", "PHONE"],
+                            example: "CHAT"
+                        },
+                        createdAt: {
+                            type: "string",
+                            format: "date-time"
+                        },
+                        actor: {
+                            $ref: "#/components/schemas/TicketThreadActor"
+                        },
+                        content: {
+                            oneOf: [
+                                {
+                                    type: "string",
+                                    example: "We are currently investigating this issue."
+                                },
+                                {
+                                    type: "object",
+                                    properties: {
+                                        subject: {
+                                            type: "string"
+                                        },
+                                        body: {
+                                            type: "string"
+                                        },
+                                        fromEmail: {
+                                            type: "string"
+                                        },
+                                        toEmail: {
+                                            type: "string"
+                                        }
+                                    }
+                                },
+                                {
+                                    type: "object",
+                                    properties: {
+                                        duration: {
+                                            type: "integer"
+                                        },
+                                        recordingUrl: {
+                                            type: "string",
+                                            nullable: true
+                                        },
+                                        logs: {
+                                            type: "array",
+                                            items: {
+                                                $ref: "#/components/schemas/TicketCallLog"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 },
@@ -497,6 +805,9 @@ const options = {
                         },
                         updatedBy: {
                             $ref: "#/components/schemas/TicketUserReference"
+                        },
+                        customer: {
+                            $ref: "#/components/schemas/TicketCustomerReference"
                         },
                         messages: {
                             type: "array",
@@ -936,6 +1247,53 @@ const options = {
                         },
                         meta: {
                             $ref: "#/components/schemas/PaginationMeta"
+                        }
+                    }
+                },
+
+                TicketThreadResponse: {
+                    type: "object",
+                    properties: {
+                        success: {
+                            type: "boolean",
+                            example: true
+                        },
+                        message: {
+                            type: "string",
+                            example: "Ticket thread fetched successfully"
+                        },
+                        data: {
+                            type: "object",
+                            properties: {
+                                thread: {
+                                    type: "array",
+                                    items: {
+                                        $ref: "#/components/schemas/TicketThreadItem"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+
+                TicketThreadItemResponse: {
+                    type: "object",
+                    properties: {
+                        success: {
+                            type: "boolean",
+                            example: true
+                        },
+                        message: {
+                            type: "string",
+                            example: "Ticket event added successfully"
+                        },
+                        data: {
+                            type: "object",
+                            properties: {
+                                event: {
+                                    $ref: "#/components/schemas/TicketThreadItem"
+                                }
+                            }
                         }
                     }
                 },

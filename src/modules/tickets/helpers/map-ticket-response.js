@@ -10,6 +10,19 @@ function mapUserReference(userId, name, email) {
     };
 }
 
+function mapCustomerReference(ticket) {
+    if (!ticket.customerId && !ticket.customerEmail && !ticket.customerPhone) {
+        return null;
+    }
+
+    return {
+        customerId: ticket.customerId,
+        name: ticket.customerName,
+        email: ticket.customerEmail,
+        phone: ticket.customerPhone
+    };
+}
+
 export function mapTicketResponse(ticket) {
     return {
         id: ticket.id,
@@ -33,6 +46,7 @@ export function mapTicketResponse(ticket) {
             ticket.updatedByName,
             ticket.updatedByEmail
         ),
+        customer: mapCustomerReference(ticket),
         createdAt: ticket.createdAt,
         updatedAt: ticket.updatedAt
     };

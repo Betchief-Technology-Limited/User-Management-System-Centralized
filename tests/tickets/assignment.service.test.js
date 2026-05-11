@@ -79,7 +79,8 @@ describe("assignTicket", () => {
             firstName: "Assigned",
             lastName: "Agent",
             email: "agent@example.com",
-            status: USER_STATUS.ACTIVE
+            status: USER_STATUS.ACTIVE,
+            allowedPermissions: ["ticket.receive_assignment"]
         });
 
         updateTicketAssignmentWithHistory.mockResolvedValue({

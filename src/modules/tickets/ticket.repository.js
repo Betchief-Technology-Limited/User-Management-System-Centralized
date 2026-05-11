@@ -3,7 +3,8 @@ import prisma from "../../database/prisma/client.js";
 function buildTicketInclude({
     includeMessages = false,
     includeStatusHistory = false,
-    includeAssignmentHistory = false
+    includeAssignmentHistory = false,
+    includeEvents = false
     } = {}) {
     return {
         ...(includeMessages
@@ -32,6 +33,28 @@ function buildTicketInclude({
                     }
                 }
             }
+            : {}),
+        ...(includeEvents
+            ? {
+                events: {
+                    orderBy: {
+                        createdAt: "asc"
+                    },
+                    include: {
+                        chat: true,
+                        email: true,
+                        call: {
+                            include: {
+                                logs: {
+                                    orderBy: {
+                                        timestamp: "asc"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             : {})
     };
 }
@@ -43,6 +66,81 @@ export async function ticketIdExists(ticketId) {
     });
 
     return Boolean(existingTicket);
+}
+
+export async function findExistingTicketCustomer({ customerPhone, customerEmail }) {
+    const conditions = [
+        customerPhone ? { customerPhone } : null,
+        customerEmail ? { customerEmail } : null
+    ].filter(Boolean);
+
+    if (!conditions.length) {
+        return null;
+    }
+
+    return prisma.ticket.findFirst({
+        where: {
+            OR: conditions
+        },
+        orderBy: {
+            createdAt: "asc"
+        },
+        select: {
+            customerId: true,
+            customerName: true,
+            customerEmail: true,
+            customerPhone: true
+        }
+    });
+}
+
+function buildTicketEventCreate({ ticketRefId, event }) {
+    return {
+        ticketId: ticketRefId,
+        type: event.type,
+        channel: event.channel,
+        createdBy: event.createdBy,
+        metadata: event.metadata
+    };
+}
+
+async function createTicketEventChannel(tx, eventId, event) {
+    if (event.chat) {
+        await tx.ticketChatMessage.create({
+            data: {
+                ticketEventId: eventId,
+                ...event.chat
+            }
+        });
+    }
+
+    if (event.email) {
+        await tx.ticketEmailMessage.create({
+            data: {
+                ticketEventId: eventId,
+                ...event.email
+            }
+        });
+    }
+
+    if (event.call) {
+        const call = await tx.ticketCall.create({
+            data: {
+                ticketEventId: eventId,
+                duration: event.call.duration,
+                recordingUrl: event.call.recordingUrl
+            }
+        });
+
+        if (event.call.initialLog) {
+            await tx.ticketCallLog.create({
+                data: {
+                    callId: call.id,
+                    ...event.call.initialLog
+                }
+            });
+        }
+    }
 }
 
 export async function createTicketWithStatusHistory({ ticketData, statusHistoryData }) {
@@ -57,6 +155,50 @@ export async function createTicketWithStatusHistory({ ticketData, statusHistoryD
                 ticketRefId: ticket.id
             }
         });
+
+        return tx.ticket.findUnique({
+            where: { id: ticket.id }
+        });
+    });
+}
+
+export async function createTicketWithTimeline({
+    ticketData,
+    statusHistoryData,
+    assignmentHistoryData,
+    initialEvent
+}) {
+    return prisma.$transaction(async (tx) => {
+        const ticket = await tx.ticket.create({
+            data: ticketData
+        });
+
+        await tx.ticketStatusHistory.create({
+            data: {
+                ...statusHistoryData,
+                ticketRefId: ticket.id
+            }
+        });
+
+        if (assignmentHistoryData) {
+            await tx.ticketAssignmentHistory.create({
+                data: {
+                    ...assignmentHistoryData,
+                    ticketRefId: ticket.id
+                }
+            });
+        }
+
+        if (initialEvent) {
+            const event = await tx.ticketEvent.create({
+                data: buildTicketEventCreate({
+                    ticketRefId: ticket.id,
+                    event: initialEvent
+                })
+            });
+
+            await createTicketEventChannel(tx, event.id, initialEvent);
+        }
 
         return tx.ticket.findUnique({
             where: { id: ticket.id }
@@ -83,6 +225,68 @@ export async function findTicketByPublicId(ticketId, includeOptions = {}) {
     return prisma.ticket.findUnique({
         where: { ticketId },
         ...(Object.keys(include).length > 0 ? { include } : {})
+    });
+}
+
+export async function createTicketEvent({ ticketRefId, event }) {
+    return prisma.$transaction(async (tx) => {
+        const createdEvent = await tx.ticketEvent.create({
+            data: buildTicketEventCreate({
+                ticketRefId,
+                event
+            })
+        });
+
+        await createTicketEventChannel(tx, createdEvent.id, event);
+
+        return tx.ticketEvent.findUnique({
+            where: { id: createdEvent.id },
+            include: {
+                chat: true,
+                email: true,
+                call: {
+                    include: {
+                        logs: {
+                            orderBy: {
+                                timestamp: "asc"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+}
+
+export async function createTicketMessageWithEvent({
+    ticketRefId,
+    messageData,
+    event
+}) {
+    return prisma.$transaction(async (tx) => {
+        const message = await tx.ticketMessage.create({
+            data: {
+                ticketRefId,
+                ...messageData
+            }
+        });
+
+        const createdEvent = await tx.ticketEvent.create({
+            data: buildTicketEventCreate({
+                ticketRefId,
+                event: {
+                    ...event,
+                    metadata: {
+                        ...(event.metadata || {}),
+                        legacyMessageId: message.id
+                    }
+                }
+            })
+        });
+
+        await createTicketEventChannel(tx, createdEvent.id, event);
+
+        return message;
     });
 }
 
@@ -200,4 +404,35 @@ export async function listTicketMessages({
     ]);
 
     return { messages, total };
+}
+
+export async function listTicketEvents(ticketRefId) {
+    return prisma.ticketEvent.findMany({
+        where: { ticketId: ticketRefId },
+        orderBy: {
+            createdAt: "asc"
+        },
+        include: {
+            chat: true,
+            email: true,
+            call: {
+                include: {
+                    logs: {
+                        orderBy: {
+                            timestamp: "asc"
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+export async function appendTicketCallLog({ callId, log }) {
+    return prisma.ticketCallLog.create({
+        data: {
+            callId,
+            ...log
+        }
+    });
 }

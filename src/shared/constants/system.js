@@ -14,7 +14,14 @@ export const INVITATION_STATUS = Object.freeze({
 
 export const DEFAULT_SYSTEM_PERMISSIONS = Object.freeze([
     "manage_users",
-    "manage_roles"
+    "manage_roles",
+    "ticket.create",
+    "ticket.view",
+    "ticket.update_status",
+    "ticket.assign",
+    "ticket.message",
+    "ticket.add_note",
+    "ticket.receive_assignment"
 ]);
 
 export const SYSTEM_ROLE = Object.freeze({

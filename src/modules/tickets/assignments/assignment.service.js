@@ -1,9 +1,7 @@
 import { AppError } from "../../../shared/errors/AppError.js";
-import { getUserById } from "../../users/user.service.js";
-import { USER_STATUS } from "../../../shared/constants/system.js";
 import { updateTicketAssignmentWithHistory, findTicketByPublicId } from "../ticket.repository.js";
-import { buildUserSnapshot } from "../ticket.utils.js";
 import { mapTicketResponse } from "../helpers/map-ticket-response.js";
+import { getAssignableUserSnapshot } from "../helpers/ticket-assignee.js";
 
 export async function assignTicket(ticketId, assignedToUserId, actor) {
     const ticket = await findTicketByPublicId(ticketId);
@@ -12,17 +10,11 @@ export async function assignTicket(ticketId, assignedToUserId, actor) {
         throw new AppError("Ticket not found", 404);
     }
 
-    const assignedUser = await getUserById(assignedToUserId);
-
-    if (assignedUser.status !== USER_STATUS.ACTIVE) {
-        throw new AppError("Only active users can be assigned to tickets", 400);
-    }
-
     if (ticket.assignedToUserId === assignedToUserId) {
         throw new AppError("Ticket is already assigned to this user", 409);
     }
 
-    const assignmentSnapshot = buildUserSnapshot(assignedUser);
+    const assignmentSnapshot = await getAssignableUserSnapshot(assignedToUserId);
     const updatedTicket = await updateTicketAssignmentWithHistory({
         ticketRefId: ticket.id,
         assignment: assignmentSnapshot,
