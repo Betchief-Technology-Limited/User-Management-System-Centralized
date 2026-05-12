@@ -31,6 +31,8 @@ export const createTicketSchema = z.object({
     customerName: z.string().min(1).optional(),
     customerEmail: z.string().email().optional(),
     customerPhone: z.string().min(1).optional(),
+    customerIp: z.string().min(1).optional(),
+    resolutionDueAt: z.coerce.date().optional(),
     channel: z.enum(ticketChannelValues).optional(),
     chat: z.object({
         message: z.string().min(1).optional(),
@@ -40,7 +42,8 @@ export const createTicketSchema = z.object({
         subject: z.string().min(1).optional(),
         body: z.string().min(1).optional(),
         fromEmail: z.string().email().optional(),
-        toEmail: z.string().email().optional()
+        toEmail: z.string().email().optional(),
+        senderType: z.enum(senderTypeValues).optional()
     }).optional(),
     call: z.object({
         duration: z.coerce.number().int().min(0).optional(),

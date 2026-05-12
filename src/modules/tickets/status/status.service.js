@@ -1,4 +1,5 @@
 import { AppError } from "../../../shared/errors/AppError.js";
+import { TICKET_STATUS } from "../ticket.constants.js";
 import { findTicketByPublicId, updateTicketStatusWithHistory } from "../ticket.repository.js";
 import { isValidStatusTransition } from "./status.rules.js";
 import { mapTicketResponse } from "../helpers/map-ticket-response.js";
@@ -21,6 +22,9 @@ export async function updateTicketStatus(ticketId, status, actor) {
         ticketRefId: ticket.id,
         status,
         updatedBy: actor,
+        ticketWorkflowData: {
+            waitingForCustomerAt: status === TICKET_STATUS.WAITING_FOR_REPLY ? new Date() : null
+        },
         history: {
             oldStatus: ticket.status,
             newStatus: status,

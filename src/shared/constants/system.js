@@ -19,6 +19,9 @@ export const DEFAULT_SYSTEM_PERMISSIONS = Object.freeze([
     "ticket.view",
     "ticket.update_status",
     "ticket.assign",
+    "ticket.transfer",
+    "ticket.pick_queue",
+    "ticket.supervise",
     "ticket.message",
     "ticket.add_note",
     "ticket.receive_assignment"

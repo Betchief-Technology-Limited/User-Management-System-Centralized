@@ -13,7 +13,8 @@ import {
     MESSAGE_TYPE,
     SENDER_TYPE,
     TICKET_CHANNEL,
-    TICKET_EVENT_TYPE
+    TICKET_EVENT_TYPE,
+    TICKET_STATUS
 } from "../ticket.constants.js";
 import {
     mapLegacyTicketMessageToEventResponse,
@@ -38,7 +39,8 @@ function buildCustomerActor(customer = {}) {
         customerId: customer.customerId,
         name: customer.customerName,
         email: customer.customerEmail,
-        phone: customer.customerPhone
+        phone: customer.customerPhone,
+        ip: customer.customerIp
     };
 }
 
@@ -64,7 +66,8 @@ export function buildTicketEventPayload(data = {}, actor, customer = {}) {
         customer.customerId ||
         customer.customerEmail ||
         customer.customerPhone ||
-        customer.customerName
+        customer.customerName ||
+        customer.customerIp
     );
 
     if (type === TICKET_EVENT_TYPE.EMAIL || channel === TICKET_CHANNEL.EMAIL) {
@@ -74,7 +77,10 @@ export function buildTicketEventPayload(data = {}, actor, customer = {}) {
             fromEmail: data.email?.fromEmail || customer.customerEmail || actor.email,
             toEmail: data.email?.toEmail || actor.email
         };
-        const createdBy = hasCustomerIdentity ? SENDER_TYPE.CUSTOMER : SENDER_TYPE.AGENT;
+        const fromActorEmail = email.fromEmail?.toLowerCase() === actor.email?.toLowerCase();
+        const createdBy = data.email?.senderType || (
+            fromActorEmail || !hasCustomerIdentity ? SENDER_TYPE.AGENT : SENDER_TYPE.CUSTOMER
+        );
 
         return {
             type: TICKET_EVENT_TYPE.EMAIL,
@@ -136,6 +142,20 @@ export function buildTicketEventPayload(data = {}, actor, customer = {}) {
     };
 }
 
+export function buildTicketLogEvent({ action, content, actor, metadata = {} }) {
+    return {
+        type: TICKET_EVENT_TYPE.LOG,
+        channel: TICKET_CHANNEL.CHAT,
+        createdBy: SENDER_TYPE.AGENT,
+        metadata: {
+            action,
+            content,
+            ...metadata,
+            actor: buildAgentActor(actor)
+        }
+    };
+}
+
 export function buildAgentChatEvent(content, actor, metadata = {}) {
     return {
         type: TICKET_EVENT_TYPE.CHAT,
@@ -168,13 +188,41 @@ export async function addEventToTicket(ticketId, data, actor) {
         customerId: ticket.customerId,
         customerName: ticket.customerName,
         customerEmail: ticket.customerEmail,
-        customerPhone: ticket.customerPhone
+        customerPhone: ticket.customerPhone,
+        customerIp: ticket.customerIp
     });
+    const now = new Date();
+    const isCustomerEvent = event.createdBy === SENDER_TYPE.CUSTOMER;
+    const isAgentEvent = event.createdBy === SENDER_TYPE.AGENT;
+    const ticketWorkflowData = {
+        updatedByUserId: actor.userId,
+        updatedByName: actor.name,
+        updatedByEmail: actor.email,
+        ...(isCustomerEvent ? { lastCustomerResponseAt: now } : {}),
+        ...(isAgentEvent ? { lastAgentResponseAt: now } : {}),
+        ...(isCustomerEvent && ticket.status === TICKET_STATUS.WAITING_FOR_REPLY
+            ? {
+                status: TICKET_STATUS.OPEN,
+                waitingForCustomerAt: null
+            }
+            : {})
+    };
+    const statusHistoryData = isCustomerEvent && ticket.status === TICKET_STATUS.WAITING_FOR_REPLY
+        ? {
+            oldStatus: ticket.status,
+            newStatus: TICKET_STATUS.OPEN,
+            changedByUserId: actor.userId,
+            changedByName: actor.name,
+            changedByEmail: actor.email
+        }
+        : null;
 
     return mapTicketEventResponse(
         await createTicketEvent({
             ticketRefId: ticket.id,
-            event
+            event,
+            ticketWorkflowData,
+            statusHistoryData
         })
     );
 }

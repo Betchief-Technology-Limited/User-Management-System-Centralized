@@ -13,6 +13,7 @@ export const createTicketEventSchema = z.object({
     customerName: z.string().min(1).optional(),
     customerEmail: z.string().email().optional(),
     customerPhone: z.string().min(1).optional(),
+    customerIp: z.string().min(1).optional(),
     channel: z.enum(ticketChannelValues),
     chat: z.object({
         message: z.string().min(1),
@@ -22,7 +23,8 @@ export const createTicketEventSchema = z.object({
         subject: z.string().min(1),
         body: z.string().min(1),
         fromEmail: z.string().email().optional(),
-        toEmail: z.string().email().optional()
+        toEmail: z.string().email().optional(),
+        senderType: z.enum(senderTypeValues).optional()
     }).optional(),
     call: z.object({
         duration: z.coerce.number().int().min(0).optional(),

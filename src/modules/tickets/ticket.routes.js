@@ -17,8 +17,16 @@ import {
 import { TICKET_PERMISSIONS } from "./ticket.constants.js";
 import { updateTicketStatusHandler } from "./status/status.contoller.js";
 import { updateTicketStatusSchema } from "./status/status.validation.js";
-import { assignTicketHandler } from "./assignments/assignment.controller.js";
-import { assignTicketSchema } from "./assignments/assignment.validation.js";
+import {
+    assignTicketHandler,
+    listOnlineAssignableAgentsHandler,
+    pickQueuedTicketHandler,
+    transferTicketHandler
+} from "./assignments/assignment.controller.js";
+import {
+    assignTicketSchema,
+    transferTicketSchema
+} from "./assignments/assignment.validation.js";
 import {
     addInternalNoteHandler,
     listInternalNotesHandler,
@@ -58,7 +66,6 @@ ticketRoutes.use(requireAuth);
  *                 title: "Dashboard access issue"
  *                 description: "Customer cannot access the dashboard after resetting password."
  *                 priority: "HIGH"
- *                 assignedToUserId: "680ab1234c56d7890ef67890"
  *                 customerName: "Sarah Chen"
  *                 customerEmail: "sarah.chen@example.com"
  *                 channel: "CHAT"
@@ -120,7 +127,7 @@ ticketRoutes.post(
  *         name: status
  *         schema:
  *           type: string
- *           enum: [OPEN, PENDING, RESOLVED, CLOSED]
+ *           enum: [QUEUED, OPEN, PENDING, WAITING_FOR_REPLY, RESOLVED, CLOSED]
  *       - in: query
  *         name: priority
  *         schema:
@@ -151,6 +158,29 @@ ticketRoutes.get(
     requirePermission(TICKET_PERMISSIONS.VIEW),
     validate(listTicketsQuerySchema, "query"),
     asyncHandler(listTicketsHandler)
+);
+
+/**
+ * @openapi
+ * /tickets/agents/online:
+ *   get:
+ *     tags: [Tickets]
+ *     summary: List online agents available for ticket transfer
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     responses:
+ *       200:
+ *         description: Online assignable agents fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/OnlineAgentsResponse'
+ */
+ticketRoutes.get(
+    "/tickets/agents/online",
+    requirePermission(TICKET_PERMISSIONS.TRANSFER),
+    asyncHandler(listOnlineAssignableAgentsHandler)
 );
 
 /**
@@ -209,6 +239,36 @@ ticketRoutes.get(
 ticketRoutes.get(
     "/tickets/:ticketId/thread",
     requirePermission(TICKET_PERMISSIONS.VIEW),
+    validate(ticketIdParamSchema, "params"),
+    asyncHandler(getTicketThreadHandler)
+);
+
+/**
+ * @openapi
+ * /tickets/{ticketId}/supervision/thread:
+ *   get:
+ *     tags: [Tickets]
+ *     summary: Supervise a ticket thread without joining the customer-visible chat
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ticketId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ticket supervision thread fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TicketThreadResponse'
+ */
+ticketRoutes.get(
+    "/tickets/:ticketId/supervision/thread",
+    requirePermission(TICKET_PERMISSIONS.SUPERVISE),
     validate(ticketIdParamSchema, "params"),
     asyncHandler(getTicketThreadHandler)
 );
@@ -346,6 +406,73 @@ ticketRoutes.patch(
     validate(ticketIdParamSchema, "params"),
     validate(assignTicketSchema),
     asyncHandler(assignTicketHandler)
+);
+
+/**
+ * @openapi
+ * /tickets/{ticketId}/transfer:
+ *   patch:
+ *     tags: [Tickets]
+ *     summary: Transfer a ticket to another online agent with a reason note
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ticketId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TransferTicketRequest'
+ *     responses:
+ *       200:
+ *         description: Ticket transferred successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TicketResponse'
+ */
+ticketRoutes.patch(
+    "/tickets/:ticketId/transfer",
+    requirePermission(TICKET_PERMISSIONS.TRANSFER),
+    validate(ticketIdParamSchema, "params"),
+    validate(transferTicketSchema),
+    asyncHandler(transferTicketHandler)
+);
+
+/**
+ * @openapi
+ * /tickets/{ticketId}/pick-from-queue:
+ *   patch:
+ *     tags: [Tickets]
+ *     summary: Pick an unassigned queued chat ticket
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ticketId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Ticket picked from queue successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TicketResponse'
+ */
+ticketRoutes.patch(
+    "/tickets/:ticketId/pick-from-queue",
+    requirePermission(TICKET_PERMISSIONS.PICK_QUEUE),
+    validate(ticketIdParamSchema, "params"),
+    asyncHandler(pickQueuedTicketHandler)
 );
 
 /**

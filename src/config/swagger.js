@@ -245,13 +245,12 @@ const options = {
 
                 CreateTicketRequest: {
                     type: "object",
-                    description: "Create a ticket with one initial channel event. Provide only the nested object that matches the selected channel.",
+                    description: "Create a ticket with one initial channel event. Provide only the nested object that matches the selected channel. An unassigned first customer CHAT is created as QUEUED so agents can pick it from the queue.",
                     required: ["title", "description"],
                     example: {
                         title: "Dashboard access issue",
                         description: "Customer cannot access the dashboard after resetting password.",
                         priority: "HIGH",
-                        assignedToUserId: "680ab1234c56d7890ef67890",
                         customerName: "Sarah Chen",
                         customerEmail: "sarah.chen@example.com",
                         channel: "CHAT",
@@ -290,6 +289,17 @@ const options = {
                             type: "string",
                             example: "+2348012345678"
                         },
+                        customerIp: {
+                            type: "string",
+                            description: "Used mainly for first-time chat widget visitors when email/phone is not available.",
+                            example: "102.165.124.192"
+                        },
+                        resolutionDueAt: {
+                            type: "string",
+                            format: "date-time",
+                            description: "Optional SLA due date. If omitted, the API applies the default ticket resolution window.",
+                            example: "2026-05-13T10:00:00.000Z"
+                        },
                         channel: {
                             type: "string",
                             enum: ["CHAT", "EMAIL", "PHONE"],
@@ -327,6 +337,11 @@ const options = {
                                 toEmail: {
                                     type: "string",
                                     example: "support@example.com"
+                                },
+                                senderType: {
+                                    type: "string",
+                                    enum: ["AGENT", "CUSTOMER"],
+                                    example: "CUSTOMER"
                                 }
                             }
                         },
@@ -377,6 +392,10 @@ const options = {
                             type: "string",
                             example: "+2348012345678"
                         },
+                        customerIp: {
+                            type: "string",
+                            example: "102.165.124.192"
+                        },
                         channel: {
                             type: "string",
                             enum: ["CHAT", "EMAIL", "PHONE"],
@@ -414,6 +433,11 @@ const options = {
                                 toEmail: {
                                     type: "string",
                                     example: "sarah.chen@example.com"
+                                },
+                                senderType: {
+                                    type: "string",
+                                    enum: ["AGENT", "CUSTOMER"],
+                                    example: "AGENT"
                                 }
                             }
                         },
@@ -444,8 +468,8 @@ const options = {
                     properties: {
                         status: {
                             type: "string",
-                            enum: ["OPEN", "PENDING", "RESOLVED", "CLOSED"],
-                            example: "PENDING"
+                            enum: ["QUEUED", "OPEN", "PENDING", "WAITING_FOR_REPLY", "RESOLVED", "CLOSED"],
+                            example: "WAITING_FOR_REPLY"
                         }
                     }
                 },
@@ -457,6 +481,26 @@ const options = {
                         assignedToUserId: {
                             type: "string",
                             example: "680ab1234c56d7890ef67890"
+                        },
+                        transferReason: {
+                            type: "string",
+                            description: "Optional note for manual assignment. Use TransferTicketRequest when transfer reason is required.",
+                            example: "Assigning to the wallet support specialist."
+                        }
+                    }
+                },
+
+                TransferTicketRequest: {
+                    type: "object",
+                    required: ["assignedToUserId", "transferReason"],
+                    properties: {
+                        assignedToUserId: {
+                            type: "string",
+                            example: "680ab1234c56d7890ef67890"
+                        },
+                        transferReason: {
+                            type: "string",
+                            example: "Customer needs wallet specialist support and I cannot resolve the issue from my queue."
                         }
                     }
                 },
@@ -605,6 +649,37 @@ const options = {
                     }
                 },
 
+                OnlineAgent: {
+                    type: "object",
+                    properties: {
+                        userId: {
+                            type: "string",
+                            example: "680ab1234c56d7890ef67890"
+                        },
+                        name: {
+                            type: "string",
+                            example: "Jane Doe"
+                        },
+                        email: {
+                            type: "string",
+                            example: "jane.doe@example.com"
+                        },
+                        role: {
+                            type: "string",
+                            example: "Support Agent"
+                        },
+                        isOnline: {
+                            type: "boolean",
+                            example: true
+                        },
+                        lastSeenAt: {
+                            type: "string",
+                            format: "date-time",
+                            nullable: true
+                        }
+                    }
+                },
+
                 TicketCustomerReference: {
                     type: "object",
                     nullable: true,
@@ -624,6 +699,10 @@ const options = {
                         phone: {
                             type: "string",
                             example: "+2348012345678"
+                        },
+                        ip: {
+                            type: "string",
+                            example: "102.165.124.192"
                         }
                     }
                 },
@@ -789,8 +868,8 @@ const options = {
                         },
                         status: {
                             type: "string",
-                            enum: ["OPEN", "PENDING", "RESOLVED", "CLOSED"],
-                            example: "OPEN"
+                            enum: ["QUEUED", "OPEN", "PENDING", "WAITING_FOR_REPLY", "RESOLVED", "CLOSED"],
+                            example: "QUEUED"
                         },
                         priority: {
                             type: "string",
@@ -808,6 +887,36 @@ const options = {
                         },
                         customer: {
                             $ref: "#/components/schemas/TicketCustomerReference"
+                        },
+                        queuedAt: {
+                            type: "string",
+                            format: "date-time",
+                            nullable: true
+                        },
+                        pickedAt: {
+                            type: "string",
+                            format: "date-time",
+                            nullable: true
+                        },
+                        resolutionDueAt: {
+                            type: "string",
+                            format: "date-time",
+                            nullable: true
+                        },
+                        waitingForCustomerAt: {
+                            type: "string",
+                            format: "date-time",
+                            nullable: true
+                        },
+                        lastCustomerResponseAt: {
+                            type: "string",
+                            format: "date-time",
+                            nullable: true
+                        },
+                        lastAgentResponseAt: {
+                            type: "string",
+                            format: "date-time",
+                            nullable: true
                         },
                         messages: {
                             type: "array",
@@ -1188,6 +1297,31 @@ const options = {
                         },
                         meta: {
                             $ref: "#/components/schemas/PaginationMeta"
+                        }
+                    }
+                },
+
+                OnlineAgentsResponse: {
+                    type: "object",
+                    properties: {
+                        success: {
+                            type: "boolean",
+                            example: true
+                        },
+                        message: {
+                            type: "string",
+                            example: "Online assignable agents fetched successfully"
+                        },
+                        data: {
+                            type: "object",
+                            properties: {
+                                agents: {
+                                    type: "array",
+                                    items: {
+                                        $ref: "#/components/schemas/OnlineAgent"
+                                    }
+                                }
+                            }
                         }
                     }
                 },

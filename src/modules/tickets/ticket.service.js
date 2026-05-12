@@ -1,6 +1,12 @@
 import { AppError } from "../../shared/errors/AppError.js";
 import { createTicketWithTimeline, countTickets, findTicketByPublicId, listTickets, ticketIdExists } from "./ticket.repository.js";
-import { TICKET_PRIORITY, TICKET_STATUS } from "./ticket.constants.js";
+import {
+    DEFAULT_TICKET_RESOLUTION_HOURS,
+    SENDER_TYPE,
+    TICKET_CHANNEL,
+    TICKET_PRIORITY,
+    TICKET_STATUS
+} from "./ticket.constants.js";
 import { buildPaginationMeta, getPagination } from "./ticket.utils.js";
 import { generateUniqueTicketId } from "./helpers/ticket-id-generator.js";
 import { buildTicketFilters } from "./helpers/build-ticket-filters.js";
@@ -11,28 +17,75 @@ import { toCreateTicketDto } from "./dto/create-ticket.dto.js";
 import { toListTicketsDto } from "./dto/list-ticket.dto.js";
 import { toTicketDetailDto } from "./dto/ticket-detail.dto.js";
 
+function addHours(date, hours) {
+    return new Date(date.getTime() + hours * 60 * 60 * 1000);
+}
+
+function shouldQueueInitialTicket(data, hasAssignment) {
+    const hasCustomerIdentity = Boolean(
+        data.customerEmail ||
+        data.customerPhone ||
+        data.customerName ||
+        data.customerIp
+    );
+    const senderType = data.chat?.senderType || (
+        hasCustomerIdentity ? SENDER_TYPE.CUSTOMER : SENDER_TYPE.AGENT
+    );
+
+    return data.channel === TICKET_CHANNEL.CHAT && senderType === SENDER_TYPE.CUSTOMER && !hasAssignment;
+}
+
 export async function createTicket(data, actor) {
     const ticketId = await generateUniqueTicketId(ticketIdExists);
     const customer = await resolveCustomerIdentity({
         customerEmail: data.customerEmail || data.email?.fromEmail,
         customerPhone: data.customerPhone,
-        customerName: data.customerName
+        customerName: data.customerName,
+        customerIp: data.customerIp
     });
     const assignmentSnapshot = data.assignedToUserId
         ? await getAssignableUserSnapshot(data.assignedToUserId)
         : null;
+    const now = new Date();
+    const initialStatus = shouldQueueInitialTicket(data, Boolean(assignmentSnapshot))
+        ? TICKET_STATUS.QUEUED
+        : TICKET_STATUS.OPEN;
+    const resolutionDueAt = data.resolutionDueAt
+        ? new Date(data.resolutionDueAt)
+        : addHours(now, DEFAULT_TICKET_RESOLUTION_HOURS);
+    const initialEvent = buildTicketEventPayload(
+        {
+            ...data,
+            chat: {
+                ...(data.chat || {}),
+                message: data.chat?.message || data.description.trim()
+            },
+            email: {
+                ...(data.email || {}),
+                subject: data.email?.subject || data.title.trim(),
+                body: data.email?.body || data.description.trim()
+            }
+        },
+        actor,
+        customer
+    );
 
     const ticket = await createTicketWithTimeline({
         ticketData: {
             ticketId,
             title: data.title.trim(),
             description: data.description.trim(),
-            status: TICKET_STATUS.OPEN,
+            status: initialStatus,
             priority: data.priority || TICKET_PRIORITY.MEDIUM,
             customerId: customer.customerId,
             customerName: customer.customerName,
             customerEmail: customer.customerEmail,
             customerPhone: customer.customerPhone,
+            customerIp: customer.customerIp,
+            queuedAt: initialStatus === TICKET_STATUS.QUEUED ? now : null,
+            resolutionDueAt,
+            lastCustomerResponseAt: initialEvent.createdBy === SENDER_TYPE.CUSTOMER ? now : null,
+            lastAgentResponseAt: initialEvent.createdBy === SENDER_TYPE.AGENT ? now : null,
             assignedToUserId: assignmentSnapshot?.userId,
             assignedToName: assignmentSnapshot?.name,
             assignedToEmail: assignmentSnapshot?.email,
@@ -45,7 +98,7 @@ export async function createTicket(data, actor) {
         },
         statusHistoryData: {
             oldStatus: null,
-            newStatus: TICKET_STATUS.OPEN,
+            newStatus: initialStatus,
             changedByUserId: actor.userId,
             changedByName: actor.name,
             changedByEmail: actor.email
@@ -63,22 +116,7 @@ export async function createTicket(data, actor) {
                 assignedByEmail: actor.email
             }
             : null,
-        initialEvent: buildTicketEventPayload(
-            {
-                ...data,
-                chat: {
-                    ...(data.chat || {}),
-                    message: data.chat?.message || data.description.trim()
-                },
-                email: {
-                    ...(data.email || {}),
-                    subject: data.email?.subject || data.title.trim(),
-                    body: data.email?.body || data.description.trim()
-                }
-            },
-            actor,
-            customer
-        )
+        initialEvent
     });
 
     return toCreateTicketDto(ticket);

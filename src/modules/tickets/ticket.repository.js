@@ -68,10 +68,11 @@ export async function ticketIdExists(ticketId) {
     return Boolean(existingTicket);
 }
 
-export async function findExistingTicketCustomer({ customerPhone, customerEmail }) {
+export async function findExistingTicketCustomer({ customerPhone, customerEmail, customerIp }) {
     const conditions = [
         customerPhone ? { customerPhone } : null,
-        customerEmail ? { customerEmail } : null
+        customerEmail ? { customerEmail } : null,
+        customerIp ? { customerIp } : null
     ].filter(Boolean);
 
     if (!conditions.length) {
@@ -89,7 +90,8 @@ export async function findExistingTicketCustomer({ customerPhone, customerEmail 
             customerId: true,
             customerName: true,
             customerEmail: true,
-            customerPhone: true
+            customerPhone: true,
+            customerIp: true
         }
     });
 }
@@ -228,7 +230,12 @@ export async function findTicketByPublicId(ticketId, includeOptions = {}) {
     });
 }
 
-export async function createTicketEvent({ ticketRefId, event }) {
+export async function createTicketEvent({
+    ticketRefId,
+    event,
+    ticketWorkflowData = null,
+    statusHistoryData = null
+}) {
     return prisma.$transaction(async (tx) => {
         const createdEvent = await tx.ticketEvent.create({
             data: buildTicketEventCreate({
@@ -238,6 +245,22 @@ export async function createTicketEvent({ ticketRefId, event }) {
         });
 
         await createTicketEventChannel(tx, createdEvent.id, event);
+
+        if (ticketWorkflowData) {
+            await tx.ticket.update({
+                where: { id: ticketRefId },
+                data: ticketWorkflowData
+            });
+        }
+
+        if (statusHistoryData) {
+            await tx.ticketStatusHistory.create({
+                data: {
+                    ...statusHistoryData,
+                    ticketRefId
+                }
+            });
+        }
 
         return tx.ticketEvent.findUnique({
             where: { id: createdEvent.id },
@@ -294,13 +317,15 @@ export async function updateTicketStatusWithHistory({
     ticketRefId,
     status,
     updatedBy,
-    history
+    history,
+    ticketWorkflowData = {}
 }) {
     return prisma.$transaction(async (tx) => {
         await tx.ticket.update({
             where: { id: ticketRefId },
             data: {
                 status,
+                ...ticketWorkflowData,
                 updatedByUserId: updatedBy.userId,
                 updatedByName: updatedBy.name,
                 updatedByEmail: updatedBy.email
@@ -328,7 +353,9 @@ export async function updateTicketAssignmentWithHistory({
     ticketRefId,
     assignment,
     updatedBy,
-    history
+    history,
+    ticketWorkflowData = {},
+    logEvent = null
 }) {
     return prisma.$transaction(async (tx) => {
         await tx.ticket.update({
@@ -337,6 +364,7 @@ export async function updateTicketAssignmentWithHistory({
                 assignedToUserId: assignment.userId,
                 assignedToName: assignment.name,
                 assignedToEmail: assignment.email,
+                ...ticketWorkflowData,
                 updatedByUserId: updatedBy.userId,
                 updatedByName: updatedBy.name,
                 updatedByEmail: updatedBy.email
@@ -354,9 +382,87 @@ export async function updateTicketAssignmentWithHistory({
                 newAssignedToEmail: history.newAssignedToEmail,
                 assignedByUserId: history.assignedByUserId,
                 assignedByName: history.assignedByName,
-                assignedByEmail: history.assignedByEmail
+                assignedByEmail: history.assignedByEmail,
+                transferReason: history.transferReason
             }
         });
+
+        if (logEvent) {
+            await tx.ticketEvent.create({
+                data: buildTicketEventCreate({
+                    ticketRefId,
+                    event: logEvent
+                })
+            });
+        }
+
+        return tx.ticket.findUnique({
+            where: { id: ticketRefId }
+        });
+    });
+}
+
+export async function pickQueuedTicketWithHistory({
+    ticketRefId,
+    assignment,
+    updatedBy,
+    statusHistory,
+    assignmentHistory,
+    logEvent
+}) {
+    return prisma.$transaction(async (tx) => {
+        const now = new Date();
+
+        await tx.ticket.update({
+            where: { id: ticketRefId },
+            data: {
+                status: statusHistory.newStatus,
+                assignedToUserId: assignment.userId,
+                assignedToName: assignment.name,
+                assignedToEmail: assignment.email,
+                pickedAt: now,
+                waitingForCustomerAt: null,
+                updatedByUserId: updatedBy.userId,
+                updatedByName: updatedBy.name,
+                updatedByEmail: updatedBy.email
+            }
+        });
+
+        await tx.ticketStatusHistory.create({
+            data: {
+                ticketRefId,
+                oldStatus: statusHistory.oldStatus,
+                newStatus: statusHistory.newStatus,
+                changedByUserId: statusHistory.changedByUserId,
+                changedByName: statusHistory.changedByName,
+                changedByEmail: statusHistory.changedByEmail
+            }
+        });
+
+        await tx.ticketAssignmentHistory.create({
+            data: {
+                ticketRefId,
+                previousAssignedToUserId: assignmentHistory.previousAssignedToUserId,
+                previousAssignedToName: assignmentHistory.previousAssignedToName,
+                previousAssignedToEmail: assignmentHistory.previousAssignedToEmail,
+                newAssignedToUserId: assignmentHistory.newAssignedToUserId,
+                newAssignedToName: assignmentHistory.newAssignedToName,
+                newAssignedToEmail: assignmentHistory.newAssignedToEmail,
+                assignedByUserId: assignmentHistory.assignedByUserId,
+                assignedByName: assignmentHistory.assignedByName,
+                assignedByEmail: assignmentHistory.assignedByEmail,
+                transferReason: assignmentHistory.transferReason
+            }
+        });
+
+        if (logEvent) {
+            await tx.ticketEvent.create({
+                data: buildTicketEventCreate({
+                    ticketRefId,
+                    event: logEvent
+                })
+            });
+        }
 
         return tx.ticket.findUnique({
             where: { id: ticketRefId }

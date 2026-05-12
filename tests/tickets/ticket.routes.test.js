@@ -71,6 +71,7 @@ jest.unstable_mockModule(
     "../../src/modules/tickets/timeline/timeline.service.js",
     () => ({
         addEventToTicket,
+        buildTicketLogEvent: jest.fn(),
         buildAgentChatEvent: jest.fn(),
         getTicketThread
     })

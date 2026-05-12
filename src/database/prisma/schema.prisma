@@ -12,8 +12,10 @@ datasource db {
 //////////////////////////////////////////////////////
 
 enum TicketStatus {
+  QUEUED
   OPEN
   PENDING
+  WAITING_FOR_REPLY
   RESOLVED
   CLOSED
 }
@@ -98,6 +100,15 @@ model Ticket {
   customerName  String?
   customerEmail String?
   customerPhone String?
+  customerIp    String?
+
+  // Queue, SLA, and customer-waiting workflow fields.
+  queuedAt               DateTime?
+  pickedAt               DateTime?
+  resolutionDueAt        DateTime?
+  waitingForCustomerAt   DateTime?
+  lastCustomerResponseAt DateTime?
+  lastAgentResponseAt    DateTime?
 
   // EXISTING RELATIONS
   assignmentHistory TicketAssignmentHistory[]
@@ -112,6 +123,8 @@ model Ticket {
   @@index([assignedToUserId])
   @@index([createdAt])
   @@index([customerId])
+  @@index([customerIp])
+  @@index([resolutionDueAt])
 }
 
 //////////////////////////////////////////////////////
@@ -145,6 +158,7 @@ model TicketAssignmentHistory {
   assignedByUserId         String
   assignedByName           String
   assignedByEmail          String
+  transferReason           String?
   createdAt                DateTime @default(now())
   ticket                   Ticket   @relation(fields: [ticketRefId], references: [id], onDelete: Cascade)
 

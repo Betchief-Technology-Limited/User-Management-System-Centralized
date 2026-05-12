@@ -7,13 +7,25 @@ import {
 
 describe("ticket status transition rules", () => {
     it("matches the allowed transition matrix", () => {
+        expect(ALLOWED_STATUS_TRANSITIONS[TICKET_STATUS.QUEUED]).toEqual([
+            TICKET_STATUS.OPEN,
+            TICKET_STATUS.CLOSED
+        ]);
         expect(ALLOWED_STATUS_TRANSITIONS[TICKET_STATUS.OPEN]).toEqual([
             TICKET_STATUS.PENDING,
+            TICKET_STATUS.WAITING_FOR_REPLY,
             TICKET_STATUS.RESOLVED,
             TICKET_STATUS.CLOSED
         ]);
         expect(ALLOWED_STATUS_TRANSITIONS[TICKET_STATUS.PENDING]).toEqual([
             TICKET_STATUS.OPEN,
+            TICKET_STATUS.WAITING_FOR_REPLY,
+            TICKET_STATUS.RESOLVED,
+            TICKET_STATUS.CLOSED
+        ]);
+        expect(ALLOWED_STATUS_TRANSITIONS[TICKET_STATUS.WAITING_FOR_REPLY]).toEqual([
+            TICKET_STATUS.OPEN,
+            TICKET_STATUS.PENDING,
             TICKET_STATUS.RESOLVED,
             TICKET_STATUS.CLOSED
         ]);
@@ -30,6 +42,12 @@ describe("ticket status transition rules", () => {
         ).toBe(true);
         expect(
             isValidStatusTransition(TICKET_STATUS.PENDING, TICKET_STATUS.OPEN)
+        ).toBe(true);
+        expect(
+            isValidStatusTransition(TICKET_STATUS.OPEN, TICKET_STATUS.WAITING_FOR_REPLY)
+        ).toBe(true);
+        expect(
+            isValidStatusTransition(TICKET_STATUS.WAITING_FOR_REPLY, TICKET_STATUS.OPEN)
         ).toBe(true);
         expect(
             isValidStatusTransition(TICKET_STATUS.RESOLVED, TICKET_STATUS.CLOSED)
