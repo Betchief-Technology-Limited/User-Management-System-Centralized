@@ -87,6 +87,9 @@ describe("updateTicketStatus", () => {
                 name: "Admin User",
                 email: "admin@example.com"
             },
+            ticketWorkflowData: {
+                waitingForCustomerAt: null
+            },
             history: {
                 oldStatus: TICKET_STATUS.OPEN,
                 newStatus: TICKET_STATUS.PENDING,

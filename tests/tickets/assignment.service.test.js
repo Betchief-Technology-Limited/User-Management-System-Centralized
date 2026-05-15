@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 const findTicketByPublicId = jest.fn();
+const pickQueuedTicketWithHistory = jest.fn();
 const updateTicketAssignmentWithHistory = jest.fn();
 const getUserById = jest.fn();
+const getUsers = jest.fn();
 const mapTicketResponse = jest.fn((ticket) => ({
     ticketId: ticket.ticketId,
     assignedTo: ticket.assignedToUserId
@@ -12,13 +14,27 @@ jest.unstable_mockModule(
     "../../src/modules/tickets/ticket.repository.js",
     () => ({
         findTicketByPublicId,
+        pickQueuedTicketWithHistory,
         updateTicketAssignmentWithHistory
     })
 );
 
 jest.unstable_mockModule("../../src/modules/users/user.service.js", () => ({
-    getUserById
+    getUserById,
+    getUsers
 }));
+
+jest.unstable_mockModule(
+    "../../src/modules/tickets/timeline/timeline.service.js",
+    () => ({
+        buildTicketLogEvent: jest.fn(({ action, content }) => ({
+            type: "LOG",
+            channel: "CHAT",
+            createdBy: "AGENT",
+            metadata: { action, content }
+        }))
+    })
+);
 
 jest.unstable_mockModule(
     "../../src/modules/tickets/helpers/map-ticket-response.js",
@@ -79,7 +95,8 @@ describe("assignTicket", () => {
             firstName: "Assigned",
             lastName: "Agent",
             email: "agent@example.com",
-            status: USER_STATUS.ACTIVE
+            status: USER_STATUS.ACTIVE,
+            allowedPermissions: ["ticket.receive_assignment"]
         });
 
         updateTicketAssignmentWithHistory.mockResolvedValue({
@@ -118,7 +135,8 @@ describe("assignTicket", () => {
                 newAssignedToEmail: "agent@example.com",
                 assignedByUserId: "admin-id",
                 assignedByName: "Admin User",
-                assignedByEmail: "admin@example.com"
+                assignedByEmail: "admin@example.com",
+                transferReason: undefined
             }
         });
         expect(result).toEqual({

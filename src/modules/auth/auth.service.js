@@ -213,7 +213,10 @@ export async function loginUser({
         expiresAt: new Date(Date.now() + SEVEN_DAYS_IN_MS),
     });
 
-    user.lastLoginAt = new Date();
+    const loginTime = new Date();
+    user.lastLoginAt = loginTime;
+    user.lastSeenAt = loginTime;
+    user.isOnline = true;
     await user.save();
 
     await recordAuditLog({
@@ -315,6 +318,12 @@ export async function logoutUser({ refreshToken }) {
 
     session.isRevoked = true;
     await session.save();
+    await User.findByIdAndUpdate(decoded.sub, {
+        $set: {
+            isOnline: false,
+            lastSeenAt: new Date()
+        }
+    });
 
     return true;
 }

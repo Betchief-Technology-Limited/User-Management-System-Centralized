@@ -1,8 +1,9 @@
 import { AppError } from "../../../shared/errors/AppError.js";
-import { createTicketMessage, findTicketByPublicId, listTicketMessages } from "../ticket.repository.js";
+import { createTicketMessageWithEvent, findTicketByPublicId, listTicketMessages } from "../ticket.repository.js";
 import { buildPaginationMeta, getPagination } from "../ticket.utils.js";
 import { MESSAGE_TYPE } from "../ticket.constants.js";
 import { mapTicketMessageResponse } from "../helpers/map-ticket-response.js";
+import { buildAgentChatEvent } from "../timeline/timeline.service.js";
 
 async function getTicketOrThrow(ticketId) {
     const ticket = await findTicketByPublicId(ticketId);
@@ -17,15 +18,17 @@ async function getTicketOrThrow(ticketId) {
 export async function sendTicketMessage(ticketId, content, actor, messageType = MESSAGE_TYPE.MESSAGE) {
     const ticket = await getTicketOrThrow(ticketId);
 
-    const message = await createTicketMessage({
+    const trimmedContent = content.trim();
+    const message = await createTicketMessageWithEvent({
         ticketRefId: ticket.id,
         messageData: {
             senderUserId: actor.userId,
             senderName: actor.name,
             senderEmail: actor.email,
             messageType,
-            content: content.trim()
-        }
+            content: trimmedContent
+        },
+        event: buildAgentChatEvent(trimmedContent, actor, { messageType })
     });
 
     return mapTicketMessageResponse({

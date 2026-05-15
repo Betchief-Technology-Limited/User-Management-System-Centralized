@@ -78,6 +78,16 @@ const userSchema = new mongoose.Schema(
         },
         lastLoginAt: {
             type: Date,
+        },
+        isOnline: {
+            type: Boolean,
+            default: false,
+            index: true
+        },
+        lastSeenAt: {
+            type: Date,
+            default: null,
+            index: true
         }
     },
     {

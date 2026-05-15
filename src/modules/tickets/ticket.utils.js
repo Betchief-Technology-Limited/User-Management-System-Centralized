@@ -39,6 +39,21 @@ export function buildUserSnapshot(user) {
     }
 }
 
+export function getClientIpFromRequest(req) {
+    const forwardedFor = req.headers?.["x-forwarded-for"];
+    const forwardedIp = Array.isArray(forwardedFor)
+        ? forwardedFor[0]
+        : forwardedFor?.split(",")[0];
+
+    return (
+        forwardedIp ||
+        req.headers?.["x-real-ip"] ||
+        req.ip ||
+        req.socket?.remoteAddress ||
+        null
+    )?.replace(/^::ffff:/, "").trim() || null;
+}
+
 export function getPagination(query = {}) {
     const page = Math.max(
         DEFAULT_TICKET_PAGE,

@@ -10,6 +10,20 @@ function mapUserReference(userId, name, email) {
     };
 }
 
+function mapCustomerReference(ticket) {
+    if (!ticket.customerId && !ticket.customerEmail && !ticket.customerPhone && !ticket.customerIp) {
+        return null;
+    }
+
+    return {
+        customerId: ticket.customerId,
+        name: ticket.customerName,
+        email: ticket.customerEmail,
+        phone: ticket.customerPhone,
+        ip: ticket.customerIp
+    };
+}
+
 export function mapTicketResponse(ticket) {
     return {
         id: ticket.id,
@@ -33,6 +47,13 @@ export function mapTicketResponse(ticket) {
             ticket.updatedByName,
             ticket.updatedByEmail
         ),
+        customer: mapCustomerReference(ticket),
+        queuedAt: ticket.queuedAt,
+        pickedAt: ticket.pickedAt,
+        resolutionDueAt: ticket.resolutionDueAt,
+        waitingForCustomerAt: ticket.waitingForCustomerAt,
+        lastCustomerResponseAt: ticket.lastCustomerResponseAt,
+        lastAgentResponseAt: ticket.lastAgentResponseAt,
         createdAt: ticket.createdAt,
         updatedAt: ticket.updatedAt
     };
