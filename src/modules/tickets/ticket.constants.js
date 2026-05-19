@@ -55,7 +55,6 @@ export const CALL_DIRECTION = Object.freeze({
 });
 
 export const TICKET_PERMISSION = Object.freeze({
-    CREATE: "ticket.create",
     VIEW: "ticket.view",
     UPDATE_STATUS: "ticket.update_status",
     ASSIGN: "ticket.assign",

@@ -50,6 +50,7 @@ ticketRoutes.use(requireAuth);
  *   post:
  *     tags: [Tickets]
  *     summary: Create a ticket
+ *     description: Creates a ticket from chat, email, or phone activity. This endpoint requires authentication for actor tracking, but does not require a ticket.create permission.
  *     security:
  *       - bearerAuth: []
  *       - cookieAuth: []
@@ -108,7 +109,6 @@ ticketRoutes.use(requireAuth);
  */
 ticketRoutes.post(
     "/tickets",
-    requirePermission(TICKET_PERMISSIONS.CREATE),
     validate(createTicketSchema),
     asyncHandler(createTicketHandler)
 );
